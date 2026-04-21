@@ -1,0 +1,938 @@
+openapi: 3.1.0
+info:
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: campaigns
+    description: Email campaign operations
+  - name: recipients
+    description: Recipient operations
+  - name: followups
+    description: Follow-up step operations
+  - name: ai
+    description: AI email generation
+  - name: dashboard
+    description: Dashboard statistics
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /campaigns:
+    get:
+      operationId: listCampaigns
+      tags: [campaigns]
+      summary: List all campaigns
+      responses:
+        "200":
+          description: List of campaigns
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Campaign"
+    post:
+      operationId: createCampaign
+      tags: [campaigns]
+      summary: Create a new campaign
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCampaignBody"
+      responses:
+        "201":
+          description: Campaign created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+
+  /campaigns/{id}:
+    get:
+      operationId: getCampaign
+      tags: [campaigns]
+      summary: Get a campaign by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Campaign details with recipients and follow-up steps
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: updateCampaign
+      tags: [campaigns]
+      summary: Update a campaign
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCampaignBody"
+      responses:
+        "200":
+          description: Campaign updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+    delete:
+      operationId: deleteCampaign
+      tags: [campaigns]
+      summary: Delete a campaign
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Campaign deleted
+
+  /campaigns/{id}/send:
+    post:
+      operationId: sendCampaign
+      tags: [campaigns]
+      summary: Send the initial email for a campaign to all recipients
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Campaign sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendResult"
+
+  /campaigns/{id}/recipients:
+    get:
+      operationId: listRecipients
+      tags: [recipients]
+      summary: List recipients for a campaign
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of recipients
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Recipient"
+    post:
+      operationId: addRecipient
+      tags: [recipients]
+      summary: Add a recipient to a campaign
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddRecipientBody"
+      responses:
+        "201":
+          description: Recipient added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Recipient"
+
+  /campaigns/{id}/recipients/{recipientId}:
+    delete:
+      operationId: removeRecipient
+      tags: [recipients]
+      summary: Remove a recipient from a campaign
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: recipientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Recipient removed
+
+  /campaigns/{id}/recipients/{recipientId}/reply:
+    post:
+      operationId: markReplied
+      tags: [recipients]
+      summary: Toggle replied status for a recipient
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: recipientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarkRepliedBody"
+      responses:
+        "200":
+          description: Reply status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Recipient"
+
+  /campaigns/{id}/followups:
+    get:
+      operationId: listFollowUpSteps
+      tags: [followups]
+      summary: List follow-up steps for a campaign
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of follow-up steps
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FollowUpStep"
+    post:
+      operationId: createFollowUpStep
+      tags: [followups]
+      summary: Add a follow-up step to a campaign
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFollowUpStepBody"
+      responses:
+        "201":
+          description: Follow-up step created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowUpStep"
+
+  /campaigns/{id}/followups/{stepId}:
+    put:
+      operationId: updateFollowUpStep
+      tags: [followups]
+      summary: Update a follow-up step
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: stepId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFollowUpStepBody"
+      responses:
+        "200":
+          description: Step updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowUpStep"
+    delete:
+      operationId: deleteFollowUpStep
+      tags: [followups]
+      summary: Delete a follow-up step
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: stepId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Step deleted
+
+  /ai/generate-email:
+    post:
+      operationId: generateEmail
+      tags: [ai]
+      summary: Generate email copy with AI
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateEmailBody"
+      responses:
+        "200":
+          description: Generated email content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeneratedEmail"
+
+  /ai/generate-followup:
+    post:
+      operationId: generateFollowUp
+      tags: [ai]
+      summary: Generate a follow-up email with AI based on the original email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateFollowUpBody"
+      responses:
+        "200":
+          description: Generated follow-up email content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeneratedEmail"
+
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get dashboard statistics
+      responses:
+        "200":
+          description: Dashboard statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/recent-activity:
+    get:
+      operationId: getRecentActivity
+      tags: [dashboard]
+      summary: Get recent email activity
+      responses:
+        "200":
+          description: Recent activity list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+
+  /reasons:
+    get:
+      operationId: listReasons
+      tags: [campaigns]
+      summary: List all reasons
+      responses:
+        "200":
+          description: List of reasons
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Reason"
+    post:
+      operationId: createReason
+      tags: [campaigns]
+      summary: Create a new reason
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                color:
+                  type: string
+              required:
+                - name
+      responses:
+        "201":
+          description: Reason created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reason"
+
+  /reasons/{id}:
+    delete:
+      operationId: deleteReason
+      tags: [campaigns]
+      summary: Delete a reason
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Reason deleted
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    Reason:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        color:
+          type: string
+      required:
+        - id
+        - name
+        - color
+
+    Campaign:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        subject:
+          type: string
+        body:
+          type: string
+        fromEmail:
+          type: string
+        fromName:
+          type: string
+        status:
+          type: string
+          enum: [draft, active, completed]
+        reasonId:
+          type: integer
+          nullable: true
+        reason:
+          $ref: "#/components/schemas/Reason"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        recipientCount:
+          type: integer
+        repliedCount:
+          type: integer
+        sentCount:
+          type: integer
+      required:
+        - id
+        - name
+        - subject
+        - body
+        - fromEmail
+        - fromName
+        - status
+        - createdAt
+        - updatedAt
+        - recipientCount
+        - repliedCount
+        - sentCount
+
+    CampaignDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        subject:
+          type: string
+        body:
+          type: string
+        fromEmail:
+          type: string
+        fromName:
+          type: string
+        status:
+          type: string
+          enum: [draft, active, completed]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        recipients:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecipientWithActivity"
+        followUpSteps:
+          type: array
+          items:
+            $ref: "#/components/schemas/FollowUpStep"
+      required:
+        - id
+        - name
+        - subject
+        - body
+        - fromEmail
+        - fromName
+        - status
+        - createdAt
+        - updatedAt
+        - recipients
+        - followUpSteps
+
+    CreateCampaignBody:
+      type: object
+      properties:
+        name:
+          type: string
+        subject:
+          type: string
+        body:
+          type: string
+        fromEmail:
+          type: string
+        fromName:
+          type: string
+        reasonId:
+          type: integer
+          nullable: true
+        includeFooter:
+          type: boolean
+        footerName:
+          type: string
+        footerTitle:
+          type: string
+        footerImageUrl:
+          type: string
+        footerWebsite:
+          type: string
+        footerWebsiteUrl:
+          type: string
+        footerFacebook:
+          type: string
+        footerInstagram:
+          type: string
+        footerYoutube:
+          type: string
+      required:
+        - name
+        - subject
+        - body
+        - fromEmail
+        - fromName
+
+    UpdateCampaignBody:
+      type: object
+      properties:
+        name:
+          type: string
+        subject:
+          type: string
+        body:
+          type: string
+        fromEmail:
+          type: string
+        fromName:
+          type: string
+        reasonId:
+          type: integer
+          nullable: true
+        status:
+          type: string
+          enum: [draft, active, completed]
+
+    Recipient:
+      type: object
+      properties:
+        id:
+          type: integer
+        campaignId:
+          type: integer
+        email:
+          type: string
+        name:
+          type: string
+        replied:
+          type: boolean
+        initialSentAt:
+          type: string
+          format: date-time
+          nullable: true
+        repliedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - campaignId
+        - email
+        - name
+        - replied
+        - createdAt
+
+    RecipientWithActivity:
+      type: object
+      properties:
+        id:
+          type: integer
+        campaignId:
+          type: integer
+        email:
+          type: string
+        name:
+          type: string
+        replied:
+          type: boolean
+        initialSentAt:
+          type: string
+          format: date-time
+          nullable: true
+        repliedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        sentEmails:
+          type: array
+          items:
+            $ref: "#/components/schemas/SentEmail"
+      required:
+        - id
+        - campaignId
+        - email
+        - name
+        - replied
+        - createdAt
+        - sentEmails
+
+    AddRecipientBody:
+      type: object
+      properties:
+        email:
+          type: string
+        name:
+          type: string
+      required:
+        - email
+        - name
+
+    MarkRepliedBody:
+      type: object
+      properties:
+        replied:
+          type: boolean
+      required:
+        - replied
+
+    FollowUpStep:
+      type: object
+      properties:
+        id:
+          type: integer
+        campaignId:
+          type: integer
+        stepNumber:
+          type: integer
+        delayValue:
+          type: integer
+        delayUnit:
+          type: string
+          enum: [minutes, hours, days]
+        subject:
+          type: string
+        body:
+          type: string
+        includeFooter:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - campaignId
+        - stepNumber
+        - delayValue
+        - delayUnit
+        - subject
+        - body
+        - includeFooter
+        - createdAt
+
+    CreateFollowUpStepBody:
+      type: object
+      properties:
+        delayValue:
+          type: integer
+        delayUnit:
+          type: string
+          enum: [minutes, hours, days]
+        subject:
+          type: string
+        body:
+          type: string
+        includeFooter:
+          type: boolean
+      required:
+        - delayValue
+        - delayUnit
+        - subject
+        - body
+        - includeFooter
+
+    UpdateFollowUpStepBody:
+      type: object
+      properties:
+        delayValue:
+          type: integer
+        delayUnit:
+          type: string
+          enum: [minutes, hours, days]
+        subject:
+          type: string
+        body:
+          type: string
+        includeFooter:
+          type: boolean
+
+    SentEmail:
+      type: object
+      properties:
+        id:
+          type: integer
+        recipientId:
+          type: integer
+        followUpStepId:
+          type: integer
+          nullable: true
+        subject:
+          type: string
+        body:
+          type: string
+        sentAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [sent, failed]
+        stepNumber:
+          type: integer
+          nullable: true
+      required:
+        - id
+        - recipientId
+        - subject
+        - body
+        - sentAt
+        - status
+
+    GenerateEmailBody:
+      type: object
+      properties:
+        description:
+          type: string
+        recipientName:
+          type: string
+        senderName:
+          type: string
+        tone:
+          type: string
+          enum: [professional, friendly, casual]
+      required:
+        - description
+
+    GenerateFollowUpBody:
+      type: object
+      properties:
+        originalSubject:
+          type: string
+        originalBody:
+          type: string
+        followUpNumber:
+          type: integer
+        description:
+          type: string
+      required:
+        - originalSubject
+        - originalBody
+        - followUpNumber
+
+    GeneratedEmail:
+      type: object
+      properties:
+        subject:
+          type: string
+        body:
+          type: string
+      required:
+        - subject
+        - body
+
+    DashboardStats:
+      type: object
+      properties:
+        totalCampaigns:
+          type: integer
+        activeCampaigns:
+          type: integer
+        totalRecipients:
+          type: integer
+        totalReplied:
+          type: integer
+        replyRate:
+          type: number
+        pendingFollowUps:
+          type: integer
+        emailsSentToday:
+          type: integer
+      required:
+        - totalCampaigns
+        - activeCampaigns
+        - totalRecipients
+        - totalReplied
+        - replyRate
+        - pendingFollowUps
+        - emailsSentToday
+
+    ActivityItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [sent, replied, followup_sent]
+        campaignName:
+          type: string
+        recipientEmail:
+          type: string
+        recipientName:
+          type: string
+        subject:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - type
+        - campaignName
+        - recipientEmail
+        - recipientName
+        - subject
+        - occurredAt
+
+    SendResult:
+      type: object
+      properties:
+        sent:
+          type: integer
+        failed:
+          type: integer
+        message:
+          type: string
+      required:
+        - sent
+        - failed
+        - message

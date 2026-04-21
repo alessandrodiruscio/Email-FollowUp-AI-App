@@ -1,0 +1,19 @@
+packages:
+  "date-fns": "For formatting human readable dates in the UI"
+  "recharts": "For rendering beautiful dashboard charts"
+  "framer-motion": "For premium page transitions and micro-interactions"
+  "@hookform/resolvers": "For Zod form validation"
+  "react-hook-form": "For robust form state management"
+  "zod": "For defining form schemas matching the API"
+
+images:
+  - path: "artifacts/email-followup/public/images/hero-mesh.png"
+    description: "Abstract gradient mesh background with deep indigo, violet, and soft teal hues. Smooth flowing light leaks, very modern SaaS aesthetic, premium feel"
+    aspect_ratio: "16:9"
+  - path: "artifacts/email-followup/public/images/empty-state.png"
+    description: "Minimalist 3D illustration of an empty inbox or paper airplane floating with soft lighting and a clean white background. High-end modern 3D icon style."
+    aspect_ratio: "1:1"
+
+notes:
+  - Using generated hooks from @workspace/api-client-react
+  - Routing configured for base path /

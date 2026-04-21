@@ -1,0 +1,27 @@
+{
+  "name": "workspace",
+  "version": "0.0.0",
+  "license": "MIT",
+  "scripts": {
+    "dev": "BASE_PATH=/ tsx artifacts/api-server/src/index.ts",
+    "start": "BASE_PATH=/ node artifacts/api-server/src/index.ts",
+    "build": "BASE_PATH=/ PORT=3000 npm run build --workspaces --if-present",
+    "typecheck:libs": "tsc --build",
+    "typecheck": "npm run typecheck:libs && npm run typecheck --workspaces --if-present"
+  },
+  "private": true,
+  "devDependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "prettier": "^3.8.1",
+    "tsx": "^4.21.0",
+    "typescript": "~5.9.2",
+    "vite": "^8.0.9"
+  },
+  "workspaces": [
+    "artifacts/*",
+    "lib/*",
+    "lib/integrations/*",
+    "scripts"
+  ]
+}

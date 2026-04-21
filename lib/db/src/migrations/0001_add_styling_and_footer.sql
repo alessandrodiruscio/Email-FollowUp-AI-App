@@ -1,0 +1,11 @@
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS email_font_size TEXT DEFAULT '16';
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS email_font_family TEXT DEFAULT 'sans-serif';
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS email_line_height TEXT DEFAULT '1.6';
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS footer_name TEXT;
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS footer_title TEXT;
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS footer_image_url TEXT;
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS footer_website TEXT;
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS footer_website_url TEXT;
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS footer_facebook TEXT;
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS footer_instagram TEXT;
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS footer_youtube TEXT;

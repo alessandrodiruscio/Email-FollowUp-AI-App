@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Email Follow-up Manager"
+version = "1.0.0"
+id = "artifacts/email-followup"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+localPort = 25092
+name = "web"
+paths = ["/"]
+
+[services.development]
+run = "pnpm --filter @workspace/email-followup run dev"
+
+[services.env]
+PORT = "25092"
+BASE_PATH = "/"
+
+[services.production]
+build = ["pnpm", "--filter", "@workspace/email-followup", "run", "build"]
+publicDir = "artifacts/email-followup/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"

@@ -1,0 +1,1 @@
+ALTER TABLE campaigns ADD COLUMN reason_id INTEGER REFERENCES reasons(id) ON DELETE SET NULL;
