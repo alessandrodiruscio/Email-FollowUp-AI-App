@@ -5,11 +5,11 @@ import { OpenAI } from "openai";
 const router: IRouter = Router();
 
 function getOpenAIClient() {
-  const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || process.env.OPENAI_BASE_URL;
+  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
 
-  if (!baseURL || !apiKey) {
-    throw new Error("OpenAI integration not configured.");
+  if (!apiKey) {
+    throw new Error("OpenAI API key not configured. Please set AI_INTEGRATIONS_OPENAI_API_KEY or OPENAI_API_KEY.");
   }
 
   return new OpenAI({ baseURL, apiKey });

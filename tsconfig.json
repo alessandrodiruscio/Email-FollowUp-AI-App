@@ -16,9 +16,9 @@
     "allowJs": true,
     "jsx": "react-jsx",
     "paths": {
-      "@/*": [
-        "./*"
-      ]
+      "@workspace/api-zod": ["./lib/api-zod/src/index.ts"],
+      "@workspace/db": ["./lib/db/src/index.ts"],
+      "@workspace/db/schema": ["./lib/db/src/schema/index.ts"]
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
