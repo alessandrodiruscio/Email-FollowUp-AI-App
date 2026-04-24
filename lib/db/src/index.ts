@@ -53,7 +53,7 @@ if (!process.env.DATABASE_URL) {
     poolConnection = mysql.createPool(config);
     
     // Handle connection errors on the pool
-    poolConnection.on('error', (err: Error) => {
+    (poolConnection as any).on('error', (err: Error) => {
       connectionError = err;
       console.error("[db] Connection pool error:", err.message);
     });
