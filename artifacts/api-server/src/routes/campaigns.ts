@@ -195,6 +195,7 @@ router.get("/campaigns", async (req, res) => {
     })
   );
   res.json(result);
+  return;
 });
 
 router.post("/campaigns", async (req, res) => {
@@ -228,6 +229,7 @@ router.post("/campaigns", async (req, res) => {
   const [campaign] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, insertId));
   
   res.status(201).json({ ...campaign, recipientCount: 0, repliedCount: 0, sentCount: 0 });
+  return;
 });
 
 router.get("/campaigns/:id", async (req, res) => {
@@ -283,6 +285,7 @@ router.get("/campaigns/:id", async (req, res) => {
   }
 
   res.json({ ...campaign, status, reason, recipients: recipientsWithActivity, followUpSteps });
+  return;
 });
 
 router.put("/campaigns/:id", async (req, res) => {
@@ -299,12 +302,14 @@ router.put("/campaigns/:id", async (req, res) => {
   }
   const counts = await getCampaignCounts(id);
   res.json({ ...updated, ...counts });
+  return;
 });
 
 router.delete("/campaigns/:id", async (req, res) => {
   const { id } = DeleteCampaignParams.parse(req.params);
   await db.delete(campaignsTable).where(eq(campaignsTable.id, id));
   res.status(204).end();
+  return;
 });
 
 router.post("/campaigns/:id/send", async (req, res) => {
@@ -505,6 +510,7 @@ router.post("/campaigns/:id/send", async (req, res) => {
       ? `Successfully sent ${sent} email(s)${failed > 0 ? `, but ${failed} failed` : ""}.` 
       : `Failed to send emails. ${failed > 0 ? `Errors: ${lastError}` : "No recipients were processed."}`
   });
+  return;
 });
 
 // Pause a campaign
@@ -527,6 +533,7 @@ router.post("/campaigns/:id/pause", async (req, res) => {
     .where(eq(campaignsTable.id, id));
 
   res.json({ message: "Campaign paused successfully" });
+  return;
 });
 
 // Resume a paused campaign
@@ -549,6 +556,7 @@ router.post("/campaigns/:id/resume", async (req, res) => {
     .where(eq(campaignsTable.id, id));
 
   res.json({ message: "Campaign resumed successfully" });
+  return;
 });
 
 // Send test email for a campaign
@@ -720,6 +728,7 @@ router.get("/campaigns/:id/recipients", async (req, res) => {
     .where(eq(recipientsTable.campaignId, id))
     .orderBy(recipientsTable.createdAt);
   res.json(recipients);
+  return;
 });
 
 router.post("/campaigns/:id/recipients", async (req, res) => {
@@ -734,6 +743,7 @@ router.post("/campaigns/:id/recipients", async (req, res) => {
   const insertId = (result as any)[0]?.insertId || result.lastID;
   const [recipient] = await db.select().from(recipientsTable).where(eq(recipientsTable.id, insertId));
   res.status(201).json(recipient);
+  return;
 });
 
 router.delete("/campaigns/:id/recipients/:recipientId", async (req, res) => {
@@ -745,6 +755,7 @@ router.delete("/campaigns/:id/recipients/:recipientId", async (req, res) => {
   }
   await db.delete(recipientsTable).where(and(eq(recipientsTable.id, recipientId), eq(recipientsTable.campaignId, id)));
   res.status(204).end();
+  return;
 });
 
 router.post("/campaigns/:id/recipients/:recipientId/reply", async (req, res) => {
@@ -760,6 +771,7 @@ router.post("/campaigns/:id/recipients/:recipientId/reply", async (req, res) => 
     return;
   }
   res.json(updated);
+  return;
 });
 
 router.post("/campaigns/:id/recipients/:recipientId/mark-sent", async (req, res) => {
@@ -774,6 +786,7 @@ router.post("/campaigns/:id/recipients/:recipientId/mark-sent", async (req, res)
     return;
   }
   res.json(updated);
+  return;
 });
 
 router.get("/campaigns/:id/followups", async (req, res) => {
@@ -784,6 +797,7 @@ router.get("/campaigns/:id/followups", async (req, res) => {
     .where(eq(followUpStepsTable.campaignId, id))
     .orderBy(followUpStepsTable.stepNumber);
   res.json(steps);
+  return;
 });
 
 router.post("/campaigns/:id/followups", async (req, res) => {
@@ -813,6 +827,7 @@ router.post("/campaigns/:id/followups", async (req, res) => {
   const insertId = (result as any)[0]?.insertId || result.lastID;
   const [step] = await db.select().from(followUpStepsTable).where(eq(followUpStepsTable.id, insertId));
   res.status(201).json(step);
+  return;
 });
 
 router.put("/campaigns/:id/followups/:stepId", async (req, res) => {
@@ -828,6 +843,7 @@ router.put("/campaigns/:id/followups/:stepId", async (req, res) => {
     return;
   }
   res.json(updated);
+  return;
 });
 
 router.delete("/campaigns/:id/followups/:stepId", async (req, res) => {
@@ -839,6 +855,7 @@ router.delete("/campaigns/:id/followups/:stepId", async (req, res) => {
   }
   await db.delete(followUpStepsTable).where(and(eq(followUpStepsTable.id, stepId), eq(followUpStepsTable.campaignId, id)));
   res.status(204).end();
+  return;
 });
 
 // Reasons endpoints
@@ -850,6 +867,7 @@ router.get("/reasons", async (_req, res) => {
     followUpTemplates: templates.filter((t: any) => t.reasonId === r.id),
   }));
   res.json(result);
+  return;
 });
 
 router.post("/reasons", async (req, res) => {
@@ -862,6 +880,7 @@ router.post("/reasons", async (req, res) => {
   const insertId = (result as any)[0]?.insertId || result.lastID;
   const [reason] = await db.select().from(reasonsTable).where(eq(reasonsTable.id, insertId));
   res.status(201).json({ ...reason, followUpTemplates: [] });
+  return;
 });
 
 router.put("/reasons/:id", async (req, res) => {
@@ -878,6 +897,7 @@ router.put("/reasons/:id", async (req, res) => {
   }
   const templates = await db.select().from(reasonFollowUpTemplatesTable).where(eq(reasonFollowUpTemplatesTable.reasonId, id)).orderBy(reasonFollowUpTemplatesTable.stepNumber);
   res.json({ ...reason, followUpTemplates: templates });
+  return;
 });
 
 router.delete("/reasons/:id", async (req, res) => {
@@ -889,6 +909,7 @@ router.delete("/reasons/:id", async (req, res) => {
   }
   await db.delete(reasonsTable).where(eq(reasonsTable.id, parseInt(id, 10)));
   res.status(204).end();
+  return;
 });
 
 // Reason follow-up template endpoints
@@ -899,6 +920,7 @@ router.post("/reasons/:id/follow-up-templates", async (req, res) => {
   const insertId = (result as any)[0]?.insertId || result.lastID;
   const [template] = await db.select().from(reasonFollowUpTemplatesTable).where(eq(reasonFollowUpTemplatesTable.id, insertId));
   res.status(201).json(template);
+  return;
 });
 
 router.put("/reasons/:id/follow-up-templates/:tid", async (req, res) => {
@@ -915,6 +937,7 @@ router.put("/reasons/:id/follow-up-templates/:tid", async (req, res) => {
     return;
   }
   res.json(template);
+  return;
 });
 
 router.delete("/reasons/:id/follow-up-templates/:tid", async (req, res) => {
@@ -927,6 +950,7 @@ router.delete("/reasons/:id/follow-up-templates/:tid", async (req, res) => {
   }
   await db.delete(reasonFollowUpTemplatesTable).where(and(eq(reasonFollowUpTemplatesTable.id, tid), eq(reasonFollowUpTemplatesTable.reasonId, reasonId)));
   res.status(204).end();
+  return;
 });
 
 // Email events endpoints
@@ -991,9 +1015,11 @@ router.get("/recipients", async (req, res) => {
       .orderBy(recipientsTable.name);
 
     res.json(results);
+    return;
   } catch (err) {
     console.error("[recipients] Error fetching recipients:", err);
     res.status(500).json({ error: "Failed to fetch recipients" });
+    return;
   }
 });
 
