@@ -1,1 +1,1 @@
-import "./artifacts/api-server/src/index.ts";
+import "./artifacts/api-server/src/index";

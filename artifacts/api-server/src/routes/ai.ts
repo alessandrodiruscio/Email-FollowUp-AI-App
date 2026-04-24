@@ -65,11 +65,11 @@ Return JSON: {"subject": "...", "body": "..."}`;
 
     const content = response.choices[0]?.message?.content ?? "{}";
     const parsed = parseJsonFromContent(content, "Generated email");
-    res.json(parsed);
+    return res.json(parsed);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[ai] generate-email failed:", message);
-    res.status(502).json({ error: "AI generation failed. Please try again.", detail: message });
+    return res.status(502).json({ error: "AI generation failed. Please try again.", detail: message });
   }
 });
 
@@ -122,11 +122,11 @@ Return JSON: {"subject": "...", "body": "..."}`;
 
     const content = response.choices[0]?.message?.content ?? "{}";
     const parsed = parseJsonFromContent(content, `Follow-up #${data.followUpNumber}`);
-    res.json(parsed);
+    return res.json(parsed);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[ai] generate-followup failed:", message);
-    res.status(502).json({ error: "AI generation failed. Please try again.", detail: message });
+    return res.status(502).json({ error: "AI generation failed. Please try again.", detail: message });
   }
 });
 
