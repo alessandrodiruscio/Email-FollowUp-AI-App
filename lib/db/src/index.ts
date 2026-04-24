@@ -1,12 +1,12 @@
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
-import * as campaigns from "./schema/campaigns.ts";
-import * as reasons from "./schema/reasons.ts";
-import * as reasonFollowUpTemplates from "./schema/reasonFollowUpTemplates.ts";
-import * as recipients from "./schema/recipients.ts";
-import * as followUpSteps from "./schema/followUpSteps.ts";
-import * as sentEmails from "./schema/sentEmails.ts";
-import * as emailEvents from "./schema/emailEvents.ts";
+import * as campaigns from "./schema/campaigns";
+import * as reasons from "./schema/reasons";
+import * as reasonFollowUpTemplates from "./schema/reasonFollowUpTemplates";
+import * as recipients from "./schema/recipients";
+import * as followUpSteps from "./schema/followUpSteps";
+import * as sentEmails from "./schema/sentEmails";
+import * as emailEvents from "./schema/emailEvents";
 
 const schema = {
   ...campaigns,
@@ -68,10 +68,10 @@ if (!process.env.DATABASE_URL) {
 export { db, connectionError };
 export const pool = poolConnection;
 
-export * from "./schema/campaigns.ts";
-export * from "./schema/reasons.ts";
-export * from "./schema/reasonFollowUpTemplates.ts";
-export * from "./schema/recipients.ts";
-export * from "./schema/followUpSteps.ts";
-export * from "./schema/sentEmails.ts";
-export * from "./schema/emailEvents.ts";
+export * from "./schema/campaigns";
+export * from "./schema/reasons";
+export * from "./schema/reasonFollowUpTemplates";
+export * from "./schema/recipients";
+export * from "./schema/followUpSteps";
+export * from "./schema/sentEmails";
+export * from "./schema/emailEvents";

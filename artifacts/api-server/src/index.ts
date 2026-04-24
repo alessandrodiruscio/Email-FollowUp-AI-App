@@ -1,8 +1,8 @@
-import "./env.ts";
+import "./env";
 import express from "express";
 import path from "path";
-import app from "./app.ts";
-import { startScheduler } from "./lib/scheduler.ts";
+import app from "./app";
+import { startScheduler } from "./lib/scheduler";
 
 async function main() {
   console.log("DATABASE_URL:", process.env.DATABASE_URL ? process.env.DATABASE_URL.substring(0, 50) + "..." : "NOT SET");

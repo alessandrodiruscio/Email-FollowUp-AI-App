@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, campaignsTable, recipientsTable, sentEmailsTable, followUpStepsTable, emailEventsTable } from "@workspace/db";
 import { eq, count, and, sql, gte, isNotNull, inArray, desc } from "drizzle-orm";
-import { getResendCredentials } from "../lib/sendEmail.ts";
+import { getResendCredentials } from "../lib/sendEmail";
 import { Resend } from "resend";
 
 const router: IRouter = Router();

@@ -23,8 +23,8 @@ import {
   UpdateFollowUpStepBody,
   DeleteFollowUpStepParams,
 } from "@workspace/api-zod";
-import { sendEmail, getResendCredentials } from "../lib/sendEmail.ts";
-import { substituteVariables } from "../lib/variableSubstitution.ts";
+import { sendEmail, getResendCredentials } from "../lib/sendEmail";
+import { substituteVariables } from "../lib/variableSubstitution";
 
 const router: IRouter = Router();
 
