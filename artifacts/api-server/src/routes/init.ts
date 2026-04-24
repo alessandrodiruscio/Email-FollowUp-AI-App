@@ -52,7 +52,7 @@ router.get("/debug/resend-credentials", async (req, res) => {
       });
     }
 
-    const json = await response.json();
+    const json: any = await response.json();
     const item = json?.items?.[0];
 
     if (!item) {

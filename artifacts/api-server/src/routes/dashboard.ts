@@ -106,7 +106,7 @@ router.post("/dashboard/sync-analytics", async (req, res) => {
     }
     
     console.log(`[sync] Completed. Checked ${recentSentEmails.length} emails. Found ${newEventsCount} missing events.`);
-    res.json({ 
+    return res.json({ 
       success: true, 
       updatedCount: newEventsCount,
       checkedCount: recentSentEmails.length,
@@ -114,7 +114,7 @@ router.post("/dashboard/sync-analytics", async (req, res) => {
     });
   } catch (error) {
     console.error("[sync] Global error:", error);
-    res.status(500).json({ error: "Failed to sync analytics" });
+    return res.status(500).json({ error: "Failed to sync analytics" });
   }
 });
 
@@ -197,7 +197,7 @@ router.get("/dashboard/stats", async (req, res) => {
 
   const [pendingFollowUps] = pendingFollowUpsResult;
 
-  res.json({
+  return res.json({
     totalCampaigns: Number(totalCampaigns?.total ?? 0),
     activeCampaigns: Number(activeCampaigns?.total ?? 0),
     totalRecipients: totalEmailed,
@@ -250,8 +250,8 @@ router.get("/dashboard/recent-activity", async (_req, res) => {
   // we should ideally fetch those too, but for simplicity and performance in a dashboard
   // we'll pool all potentially relevant sent email IDs first.
   const allNeededEmailIds = Array.from(new Set([
-    ...sentEmails.map(se => se.id),
-    ...emailEvents.map(e => e.sentEmailId)
+    ...sentEmails.map((se: any) => se.id),
+    ...emailEvents.map((e: any) => e.sentEmailId)
   ]));
 
   // Re-fetch all needed sent email details in one go to ensure consistency
@@ -272,7 +272,7 @@ router.get("/dashboard/recent-activity", async (_req, res) => {
     .innerJoin(campaignsTable, eq(recipientsTable.campaignId, campaignsTable.id))
     .where(inArray(sentEmailsTable.id, allNeededEmailIds)) : [];
 
-  const sentEmailMap = new Map(enrichedSentEmails.map(se => [se.id, se]));
+  const sentEmailMap = new Map(enrichedSentEmails.map((se: any) => [se.id, se]));
 
   const activity: Array<{
     id: number;
@@ -287,7 +287,7 @@ router.get("/dashboard/recent-activity", async (_req, res) => {
   const repliedEmails = new Set<string>();
 
   // Use the top 30 most recent sent emails for the 'sent' activities
-  for (const se of sentEmails.slice(0, 30)) {
+  for (const se of (sentEmails as any[]).slice(0, 30)) {
     activity.push({
       id: se.id,
       type: se.stepNumber === 0 ? "sent" : "followup_sent",
@@ -313,8 +313,8 @@ router.get("/dashboard/recent-activity", async (_req, res) => {
   }
 
   // Add email open and click events
-  for (const event of emailEvents) {
-    const sentEmail = sentEmailMap.get(event.sentEmailId);
+  for (const event of (emailEvents as any[])) {
+    const sentEmail = sentEmailMap.get(event.sentEmailId) as any;
     if (sentEmail) {
       activity.push({
         id: event.id + 200000,
@@ -328,9 +328,9 @@ router.get("/dashboard/recent-activity", async (_req, res) => {
     }
   }
 
-  activity.sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime());
+  activity.sort((a: any, b: any) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime());
 
-  res.json(activity.slice(0, 30));
+  return res.json(activity.slice(0, 30));
 });
 
 router.get("/dashboard/activity-detail", async (req, res) => {
@@ -358,8 +358,8 @@ router.get("/dashboard/activity-detail", async (req, res) => {
       
       // Filter out null occurredAt before mapping
       return res.json(results
-        .filter(r => r.occurredAt !== null)
-        .map(r => ({ 
+        .filter((r: any) => r.occurredAt !== null)
+        .map((r: any) => ({ 
           ...r, 
           id: Math.random(), 
           type: 'replied',
@@ -385,7 +385,7 @@ router.get("/dashboard/activity-detail", async (req, res) => {
         .orderBy(desc(emailEventsTable.timestamp))
         .limit(100);
       
-      return res.json(results.map(r => ({ 
+      return res.json(results.map((r: any) => ({ 
         ...r, 
         type: activityType,
         occurredAt: r.occurredAt.toISOString()
@@ -393,7 +393,7 @@ router.get("/dashboard/activity-detail", async (req, res) => {
     }
   } catch (error) {
     console.error(`[activity-detail] Error:`, error);
-    res.status(500).json({ error: "Failed to fetch activity detail" });
+    return res.status(500).json({ error: "Failed to fetch activity detail" });
   }
 });
 
@@ -413,13 +413,13 @@ router.post("/dashboard/reset-stats", async (req, res) => {
     });
     console.log(`[admin] Reset all recipients' reply status`);
     
-    res.json({ 
+    return res.json({ 
       success: true, 
       message: "Dashboard completely reset. All stats will count from now." 
     });
   } catch (error) {
     console.error("[admin] Error resetting stats:", error);
-    res.status(500).json({ error: "Failed to reset stats" });
+    return res.status(500).json({ error: "Failed to reset stats" });
   }
 });
 

@@ -114,10 +114,10 @@ router.post("/resend", async (req, res) => {
       `[webhook] Stored ${eventType} event for message ${emailId}`
     );
 
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (error) {
     console.error("[webhook] Error processing Resend webhook:", error);
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 

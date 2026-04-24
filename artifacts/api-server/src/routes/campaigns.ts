@@ -119,7 +119,7 @@ router.get("/campaigns", async (req, res) => {
   
   // Process campaigns in parallel with efficient, targeted queries
   const result = await Promise.all(
-    campaigns.map(async (c) => {
+    campaigns.map(async (c: any) => {
       // 1. Get counts (recipient, replied, sent) - optimized helper
       const counts = await getCampaignCounts(c.id);
       
@@ -258,7 +258,7 @@ router.get("/campaigns/:id", async (req, res) => {
     .orderBy(followUpStepsTable.stepNumber);
 
   const recipientsWithActivity = await Promise.all(
-    recipients.map(async (r) => {
+    recipients.map(async (r: any) => {
       const sentEmails = await db
         .select()
         .from(sentEmailsTable)
@@ -845,9 +845,9 @@ router.delete("/campaigns/:id/followups/:stepId", async (req, res) => {
 router.get("/reasons", async (_req, res) => {
   const reasons = await db.select().from(reasonsTable).orderBy(reasonsTable.name);
   const templates = await db.select().from(reasonFollowUpTemplatesTable).orderBy(reasonFollowUpTemplatesTable.stepNumber);
-  const result = reasons.map((r) => ({
+  const result = reasons.map((r: any) => ({
     ...r,
-    followUpTemplates: templates.filter((t) => t.reasonId === r.id),
+    followUpTemplates: templates.filter((t: any) => t.reasonId === r.id),
   }));
   res.json(result);
 });
@@ -945,20 +945,20 @@ router.get("/campaigns/:id/recipients/:recipientId/events", async (req, res) => 
   }
 
   // Get all events for these sent emails
-  const emailIds = sentEmails.map(e => e.id);
+  const emailIds = sentEmails.map((e: any) => e.id);
   const events = emailIds.length > 0 
     ? await db
         .select()
         .from(emailEventsTable)
-        .where(sql`${emailEventsTable.sentEmailId} IN (${sql.raw(emailIds.map(id => String(id)).join(","))})`)
+        .where(sql`${emailEventsTable.sentEmailId} IN (${sql.raw(emailIds.map((id: any) => String(id)).join(","))})`)
         .orderBy(emailEventsTable.timestamp)
     : [];
 
   // Combine sent emails with their events
-  const enrichedEmails = sentEmails.map(email => {
-    const emailEvents = events.filter(e => e.sentEmailId === email.id);
-    const openedEvent = emailEvents.find(e => e.eventType === "opened");
-    const clickedEvent = emailEvents.find(e => e.eventType === "clicked");
+  const enrichedEmails = sentEmails.map((email: any) => {
+    const emailEvents = events.filter((e: any) => e.sentEmailId === email.id);
+    const openedEvent = emailEvents.find((e: any) => e.eventType === "opened");
+    const clickedEvent = emailEvents.find((e: any) => e.eventType === "clicked");
 
     return {
       ...email,
@@ -970,7 +970,7 @@ router.get("/campaigns/:id/recipients/:recipientId/events", async (req, res) => 
     };
   });
 
-  res.json(enrichedEmails);
+  return res.json(enrichedEmails);
 });
 
 // Search for recipients by name or email
@@ -1024,10 +1024,10 @@ router.get("/search/recipients", async (req, res) => {
       )
       .limit(20);
 
-    res.json(results);
+    return res.json(results);
   } catch (err) {
     console.error("[search] Error searching recipients:", err);
-    res.status(500).json({ error: "Failed to search recipients" });
+    return res.status(500).json({ error: "Failed to search recipients" });
   }
 });
 
