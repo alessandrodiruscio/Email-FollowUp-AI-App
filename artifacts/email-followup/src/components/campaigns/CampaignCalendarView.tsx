@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { Link } from "wouter";
-import { useListCampaigns } from "@workspace/api-client-react";
+import { useListCampaignsWithDetails } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -124,7 +124,7 @@ interface CalendarEvent {
 }
 
 export function CampaignCalendarView() {
-  const { data: campaigns = [] } = useListCampaigns();
+  const { data: campaigns = [] } = useListCampaignsWithDetails();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"monthly" | "weekly">("monthly");
 

@@ -1,6 +1,22 @@
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
-import * as schema from "./schema";
+import * as campaigns from "./schema/campaigns.ts";
+import * as reasons from "./schema/reasons.ts";
+import * as reasonFollowUpTemplates from "./schema/reasonFollowUpTemplates.ts";
+import * as recipients from "./schema/recipients.ts";
+import * as followUpSteps from "./schema/followUpSteps.ts";
+import * as sentEmails from "./schema/sentEmails.ts";
+import * as emailEvents from "./schema/emailEvents.ts";
+
+const schema = {
+  ...campaigns,
+  ...reasons,
+  ...reasonFollowUpTemplates,
+  ...recipients,
+  ...followUpSteps,
+  ...sentEmails,
+  ...emailEvents,
+};
 
 let poolConnection: ReturnType<typeof mysql.createPool> | null = null;
 let db: any = null;
@@ -52,4 +68,10 @@ if (!process.env.DATABASE_URL) {
 export { db, connectionError };
 export const pool = poolConnection;
 
-export * from "./schema";
+export * from "./schema/campaigns.ts";
+export * from "./schema/reasons.ts";
+export * from "./schema/reasonFollowUpTemplates.ts";
+export * from "./schema/recipients.ts";
+export * from "./schema/followUpSteps.ts";
+export * from "./schema/sentEmails.ts";
+export * from "./schema/emailEvents.ts";

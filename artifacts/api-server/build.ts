@@ -51,8 +51,11 @@ async function buildAll() {
   const externals = allDeps.filter(
     (dep) =>
       !allowlist.includes(dep) &&
-      !(pkg.dependencies?.[dep]?.startsWith("workspace:")),
+      !dep.startsWith("@workspace/"),
   );
+
+  console.log("Externals:", externals);
+  console.log("Bundling workspace packages...");
 
   await esbuild({
     entryPoints: [path.resolve(__dirname, "src/index.ts")],

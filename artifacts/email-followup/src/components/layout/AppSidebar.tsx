@@ -39,18 +39,17 @@ import type { Reason } from "@workspace/api-client-react";
 import { useCreateReason } from "@workspace/api-client-react";
 
 function LogoHeader() {
-  const [logoFile, setLogoFile] = useState<string>("/logo-custom.png");
+  const [logoFile, setLogoFile] = useState<string>("/logo-custom.svg");
 
   useEffect(() => {
     const logos: Record<string, string> = {
-      "custom": "/logo-custom.png",
-      "1": "/logo-option-1.png",
-      "2": "/logo-option-2.png",
-      "3": "/logo-option-3.png",
-      "4": "/logo-option-4.png",
+      "custom": "/logo-custom.svg",
+      "pulse": "/logo-ai-pulse.svg",
+      "connect": "/logo-connect-ai.svg",
+      "outreach": "/logo-smart-outreach.svg",
     };
     const selectedLogo = localStorage.getItem("selectedLogo") || "custom";
-    setLogoFile(logos[selectedLogo]);
+    setLogoFile(logos[selectedLogo] || logos["custom"]);
   }, []);
 
   return (
@@ -67,7 +66,7 @@ export function AppSidebar() {
   const [showEditDialog, setShowEditDialog] = useState(false);
 
   const { data: reasonsData } = useListReasons();
-  const reasons = reasonsData || [];
+  const reasons = Array.isArray(reasonsData) ? reasonsData : [];
   const createReasonMutation = useCreateReason();
   const deleteReasonMutation = useDeleteReason();
   const queryClient = useQueryClient();

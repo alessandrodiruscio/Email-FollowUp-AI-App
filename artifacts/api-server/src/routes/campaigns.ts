@@ -23,8 +23,8 @@ import {
   UpdateFollowUpStepBody,
   DeleteFollowUpStepParams,
 } from "@workspace/api-zod";
-import { sendEmail } from "../lib/sendEmail";
-import { substituteVariables } from "../lib/variableSubstitution";
+import { sendEmail, getResendCredentials } from "../lib/sendEmail.ts";
+import { substituteVariables } from "../lib/variableSubstitution.ts";
 
 const router: IRouter = Router();
 
@@ -43,10 +43,34 @@ async function getCampaignCounts(campaignId: number) {
     .innerJoin(recipientsTable, eq(sentEmailsTable.recipientId, recipientsTable.id))
     .where(and(eq(recipientsTable.campaignId, campaignId), eq(sentEmailsTable.status, "sent")));
 
+  // Count distinct recipients who opened at least one email in this campaign
+  const [opened] = await db
+    .select({ total: count() })
+    .from(emailEventsTable)
+    .innerJoin(sentEmailsTable, eq(emailEventsTable.sentEmailId, sentEmailsTable.id))
+    .innerJoin(recipientsTable, eq(sentEmailsTable.recipientId, recipientsTable.id))
+    .where(and(
+      eq(recipientsTable.campaignId, campaignId),
+      eq(emailEventsTable.eventType, "opened")
+    ));
+
+  // Count distinct recipients who clicked at least one email in this campaign
+  const [clicked] = await db
+    .select({ total: count() })
+    .from(emailEventsTable)
+    .innerJoin(sentEmailsTable, eq(emailEventsTable.sentEmailId, sentEmailsTable.id))
+    .innerJoin(recipientsTable, eq(sentEmailsTable.recipientId, recipientsTable.id))
+    .where(and(
+      eq(recipientsTable.campaignId, campaignId),
+      eq(emailEventsTable.eventType, "clicked")
+    ));
+
   return {
     recipientCount: recipients?.total ?? 0,
     repliedCount: replied?.total ?? 0,
     sentCount: sent?.total ?? 0,
+    openedCount: opened?.total ?? 0,
+    clickedCount: clicked?.total ?? 0,
   };
 }
 
@@ -87,46 +111,69 @@ async function shouldCampaignBeCompleted(campaignId: number): Promise<boolean> {
   return totalSentEmails >= expectedTotalEmails;
 }
 
-router.get("/campaigns", async (_req, res) => {
+router.get("/campaigns", async (req, res) => {
+  const includeDetails = req.query.include_details === "true";
+  
+  // Use optimized query to get campaigns ordered by creation date
   const campaigns = await db.select().from(campaignsTable).orderBy(sql`${campaignsTable.createdAt} DESC`);
+  
+  // Process campaigns in parallel with efficient, targeted queries
   const result = await Promise.all(
     campaigns.map(async (c) => {
+      // 1. Get counts (recipient, replied, sent) - optimized helper
       const counts = await getCampaignCounts(c.id);
       
-      // Get the reason if reasonId is set
+      // 2. Get the reason summary (name/color) only
       let reason = null;
       if (c.reasonId) {
         const [reasonData] = await db.select().from(reasonsTable).where(eq(reasonsTable.id, c.reasonId));
         reason = reasonData || null;
       }
       
-      // Get follow-up steps
-      const followUpSteps = await db
-        .select()
-        .from(followUpStepsTable)
-        .where(eq(followUpStepsTable.campaignId, c.id))
-        .orderBy(followUpStepsTable.stepNumber);
+      // 3. Get follow-up steps (either count or full list)
+      let followUpSteps: any[] = [];
+      let followUpCount = 0;
       
-      // Get all recipients with their sent email details for calendar calculation
-      const recipients = await db
-        .select()
-        .from(recipientsTable)
-        .where(eq(recipientsTable.campaignId, c.id));
+      if (includeDetails) {
+        followUpSteps = await db
+          .select()
+          .from(followUpStepsTable)
+          .where(eq(followUpStepsTable.campaignId, c.id))
+          .orderBy(followUpStepsTable.stepNumber);
+        followUpCount = followUpSteps.length;
+      } else {
+        const [{ count: fCount }] = await db
+          .select({ count: count() })
+          .from(followUpStepsTable)
+          .where(eq(followUpStepsTable.campaignId, c.id));
+        followUpCount = Number(fCount ?? 0);
+      }
       
-      // Get first recipient's name and email (for display)
-      const firstRecipient = await db
-        .select({ name: recipientsTable.name, email: recipientsTable.email })
-        .from(recipientsTable)
-        .where(eq(recipientsTable.campaignId, c.id))
-        .limit(1);
+      // 4. Get recipients (either first one for display or full list for calendar)
+      let recipients: any[] = [];
+      let firstRecipientData = null;
       
-      // Determine status: if all emails (initial + follow-ups) have been sent, mark as completed
+      if (includeDetails) {
+        recipients = await db
+          .select()
+          .from(recipientsTable)
+          .where(eq(recipientsTable.campaignId, c.id));
+        firstRecipientData = recipients[0];
+      } else {
+        const [first] = await db
+          .select({ name: recipientsTable.name, email: recipientsTable.email })
+          .from(recipientsTable)
+          .where(eq(recipientsTable.campaignId, c.id))
+          .limit(1);
+        firstRecipientData = first;
+      }
+      
+      // 5. Light-weight status check (only if necessary)
       let status = c.status;
       if (status === "active" || status === "paused") {
         const isCompleted = await shouldCampaignBeCompleted(c.id);
         if (isCompleted) {
           status = "completed";
-          // Update the database to reflect the completed status
           await db
             .update(campaignsTable)
             .set({ status: "completed", updatedAt: new Date() })
@@ -139,11 +186,11 @@ router.get("/campaigns", async (_req, res) => {
         reason,
         status,
         ...counts,
-        followUpCount: followUpSteps.length,
+        followUpCount,
         followUpSteps,
         recipients,
-        recipientName: firstRecipient[0]?.name || null,
-        recipientEmail: firstRecipient[0]?.email || null
+        recipientName: firstRecipientData?.name || null,
+        recipientEmail: firstRecipientData?.email || null
       };
     })
   );
@@ -295,8 +342,27 @@ router.post("/campaigns/:id/send", async (req, res) => {
       sql`${recipientsTable.initialSentAt} IS NULL`
     ));
 
+  console.log(`[send] Found ${recipients.length} recipients for campaign ${id}`);
+
+  if (recipients.length === 0) {
+    console.log(`[send] No unsent recipients for campaign ${id}. Campaign may have already been sent.`);
+    res.json({ sent: 0, failed: 0, message: "No recipients found that haven't already received this campaign." });
+    return;
+  }
+
+  const credentials = await getResendCredentials();
+  if (!credentials) {
+    console.error(`[send] Failed to start campaign ${id}: Resend credentials not found.`);
+    res.status(400).json({ 
+      error: "Resend not configured", 
+      message: "Please configure your RESEND_API_KEY and RESEND_FROM_EMAIL in the Secrets panel before starting a campaign." 
+    });
+    return;
+  }
+
   let sent = 0;
   let failed = 0;
+  let lastError = "";
 
   // Build footer if any footer fields are present
   let emailBody = campaign.body;
@@ -347,13 +413,13 @@ router.post("/campaigns/:id/send", async (req, res) => {
     if (campaign.footerFacebook || campaign.footerInstagram || campaign.footerYoutube) {
       htmlFooter += '<div style="margin-top: 12px;">';
       if (campaign.footerFacebook) {
-        htmlFooter += `<a href="https://facebook.com/${campaign.footerFacebook}" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; background-color: #6366F1; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 16px; color: white; margin-right: 4px;">f</a>`;
+        htmlFooter += `<a href="https://facebook.com/${campaign.footerFacebook}" style="display: inline-block; text-decoration: none; margin-right: 8px;"><img src="https://cdn-icons-png.flaticon.com/32/733/733547.png" width="32" height="32" style="display: block; border: 0;" /></a>`;
       }
       if (campaign.footerInstagram) {
-        htmlFooter += `<a href="https://instagram.com/${campaign.footerInstagram}" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; background-color: #6366F1; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 16px; color: white; margin-right: 4px;">@</a>`;
+        htmlFooter += `<a href="https://instagram.com/${campaign.footerInstagram}" style="display: inline-block; text-decoration: none; margin-right: 8px;"><img src="https://cdn-icons-png.flaticon.com/32/174/174855.png" width="32" height="32" style="display: block; border: 0;" /></a>`;
       }
       if (campaign.footerYoutube) {
-        htmlFooter += `<a href="https://youtube.com/${campaign.footerYoutube}" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; background-color: #6366F1; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 16px; color: white; margin-right: 4px;">▶</a>`;
+        htmlFooter += `<a href="https://youtube.com/${campaign.footerYoutube}" style="display: inline-block; text-decoration: none; margin-right: 8px;"><img src="https://cdn-icons-png.flaticon.com/32/1384/1384060.png" width="32" height="32" style="display: block; border: 0;" /></a>`;
       }
       htmlFooter += '</div>';
     }
@@ -412,6 +478,7 @@ router.post("/campaigns/:id/send", async (req, res) => {
       });
       sent++;
     } else {
+      lastError = result.error || "Unknown error";
       await db.insert(sentEmailsTable).values({
         recipientId: recipient.id,
         subject: campaign.subject,
@@ -431,7 +498,13 @@ router.post("/campaigns/:id/send", async (req, res) => {
       .where(eq(campaignsTable.id, id));
   }
 
-  res.json({ sent, failed, message: `Sent ${sent} email(s), ${failed} failed` });
+  res.json({ 
+    sent, 
+    failed, 
+    message: sent > 0 
+      ? `Successfully sent ${sent} email(s)${failed > 0 ? `, but ${failed} failed` : ""}.` 
+      : `Failed to send emails. ${failed > 0 ? `Errors: ${lastError}` : "No recipients were processed."}`
+  });
 });
 
 // Pause a campaign

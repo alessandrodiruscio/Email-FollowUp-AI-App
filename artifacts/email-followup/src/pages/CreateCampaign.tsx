@@ -68,7 +68,7 @@ export default function CreateCampaign() {
   const createMutation = useCreateCampaign();
   const createReasonMutation = useCreateReason();
   const { data: reasonsData } = useListReasons();
-  const reasons = reasonsData || [];
+  const reasons = Array.isArray(reasonsData) ? reasonsData : [];
   const settings = getSettings();
 
   const [recipients, setRecipients] = useState<Recipient[]>([]);

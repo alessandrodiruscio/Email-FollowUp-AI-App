@@ -1,0 +1,13 @@
+<svg width="240" height="60" viewBox="0 0 240 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="240" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#3B82F6"/>
+    </linearGradient>
+  </defs>
+  <rect width="240" height="60" rx="8" fill="url(#g1)"/>
+  <path d="M20 30H30L35 15L45 45L50 30H60" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.8">
+    <animate attributeName="stroke-dasharray" from="0,100" to="100,0" dur="2s" repeatCount="indefinite" />
+  </path>
+  <text x="75" y="38" fill="white" font-family="sans-serif" font-weight="900" font-size="24">AI PULSE</text>
+</svg>

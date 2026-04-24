@@ -2,8 +2,8 @@ import { mysqlTable, int, text, varchar, datetime } from "drizzle-orm/mysql-core
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
-import { recipientsTable } from "./recipients";
-import { followUpStepsTable } from "./followUpSteps";
+import { recipientsTable } from "./recipients.ts";
+import { followUpStepsTable } from "./followUpSteps.ts";
 
 export const sentEmailsTable = mysqlTable("sent_emails", {
   id: int("id").primaryKey().autoincrement(),

@@ -30,6 +30,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { RichTextEditor } from "@/components/ui/RichTextEditor";
 import { ArrowLeft, Send, Mail, Users, Clock, CheckCircle2, Trash2, StopCircle, RefreshCw, Pencil, Loader2, Plus, Zap } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { getStatusColor, formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { AddRecipientDialog } from "@/components/campaigns/AddRecipientDialog";
@@ -341,7 +342,7 @@ export default function CampaignDetail() {
     refetchIntervalInBackground: true 
   });
   const { data: reasonsData } = useListReasons();
-  const reasons = reasonsData || [];
+  const reasons = Array.isArray(reasonsData) ? reasonsData : [];
   const createReasonMutation = useCreateReason();
   const sendMutation = useSendCampaign();
   const sendTestEmailMutation = useSendTestEmail();
@@ -358,15 +359,24 @@ export default function CampaignDetail() {
   const [showEditCampaignDialog, setShowEditCampaignDialog] = useState(false);
 
   const handleSend = () => {
-    if (confirm("Send initial emails to ALL recipients who haven't received it yet?")) {
-      sendMutation.mutate({ id: campaignId }, {
-        onSuccess: (res) => {
-          queryClient.invalidateQueries({ queryKey: getGetCampaignQueryKey(campaignId) });
-          toast({ title: "Sending complete", description: res.message });
-        },
-        onError: () => toast({ title: "Failed to send", variant: "destructive" })
-      });
-    }
+    sendMutation.mutate({ id: campaignId }, {
+      onSuccess: (res) => {
+        queryClient.invalidateQueries({ queryKey: getGetCampaignQueryKey(campaignId) });
+        toast({ 
+          title: res.sent > 0 ? "Sending complete" : "Sending failed", 
+          description: res.message,
+          variant: res.sent > 0 ? "default" : "destructive"
+        });
+      },
+      onError: (err: any) => {
+        const errorMessage = err?.data?.message || err?.data?.error || "Failed to send campaign";
+        toast({ 
+          title: "Error starting campaign", 
+          description: errorMessage, 
+          variant: "destructive" 
+        });
+      }
+    });
   };
 
   const handlePauseCampaign = useCallback(async () => {
@@ -467,19 +477,15 @@ export default function CampaignDetail() {
   };
 
   const removeRecipient = (recipientId: number) => {
-    if(confirm("Remove this recipient?")) {
-      removeRecipientMut.mutate({ id: campaignId, recipientId }, {
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetCampaignQueryKey(campaignId) })
-      });
-    }
+    removeRecipientMut.mutate({ id: campaignId, recipientId }, {
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetCampaignQueryKey(campaignId) })
+    });
   };
 
   const deleteStep = (stepId: number) => {
-    if(confirm("Delete this follow-up step? This affects future automated sends.")) {
-      deleteStepMut.mutate({ id: campaignId, stepId }, {
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetCampaignQueryKey(campaignId) })
-      });
-    }
+    deleteStepMut.mutate({ id: campaignId, stepId }, {
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetCampaignQueryKey(campaignId) })
+    });
   };
 
   if (isLoading) {
@@ -524,15 +530,30 @@ export default function CampaignDetail() {
         
         <div className="flex gap-2 items-center">
           {campaign.status === "draft" && (
-            <Button 
-              size="lg" 
-              onClick={handleSend}
-              disabled={sendMutation.isPending || campaign.recipients.length === 0}
-              className="bg-primary hover:bg-primary/90 text-white rounded-xl shadow-lg shadow-primary/20 font-bold px-8"
-            >
-              {sendMutation.isPending ? <RefreshCw className="w-5 h-5 mr-2 animate-spin" /> : <Send className="w-5 h-5 mr-2" />}
-              Start Campaign
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button 
+                  size="lg" 
+                  disabled={sendMutation.isPending || campaign.recipients.length === 0}
+                  className="bg-primary hover:bg-primary/90 text-white rounded-xl shadow-lg shadow-primary/20 font-bold px-8"
+                >
+                  {sendMutation.isPending ? <RefreshCw className="w-5 h-5 mr-2 animate-spin" /> : <Send className="w-5 h-5 mr-2" />}
+                  Start Campaign
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Start Campaign</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Send initial emails to ALL recipients who haven't received it yet?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleSend} className="rounded-xl bg-primary text-white font-bold">Start</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
           {campaign.status === "active" && (
             <>

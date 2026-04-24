@@ -1,17 +1,62 @@
-import { useGetRecentActivity } from "@workspace/api-client-react";
-import { useDashboardStats } from "@/hooks/useDashboardStats";
+import { useGetRecentActivity, customFetch, getGetRecentActivityQueryKey } from "@workspace/api-client-react";
+import { useDashboardStats, getDashboardStatsQueryKey } from "@/hooks/useDashboardStats";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Mail, CheckCircle2, Users, Clock, ArrowUpRight, Inbox, MailOpen, MousePointerClick, X } from "lucide-react";
+import { Mail, CheckCircle2, Users, Clock, ArrowUpRight, Inbox, MailOpen, MousePointerClick, X, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function Dashboard() {
   const [daysFilter, setDaysFilter] = useState(30);
   const [selectedDetailType, setSelectedDetailType] = useState<'replied' | 'opened' | 'clicked' | null>(null);
+  const [detailData, setDetailData] = useState<any[]>([]);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const queryClient = useQueryClient();
+  
   const { data: stats, isLoading: isLoadingStats } = useDashboardStats(daysFilter);
-  const { data: activity, isLoading: isLoadingActivity } = useGetRecentActivity();
+  const { data: activityData, isLoading: isLoadingActivity } = useGetRecentActivity();
+  const activity = Array.isArray(activityData) ? activityData : [];
+
+  const fetchDetail = async (type: string) => {
+    setIsLoadingDetail(true);
+    try {
+      const data = await customFetch<any[]>(`/api/dashboard/activity-detail?type=${type}`);
+      setDetailData(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Failed to fetch detail:", err);
+      setDetailData([]);
+    } finally {
+      setIsLoadingDetail(false);
+    }
+  };
+
+  const handleStatClick = (type: 'replied' | 'opened' | 'clicked') => {
+    setSelectedDetailType(type);
+    fetchDetail(type);
+  };
+
+  const handleSync = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    try {
+      const data = await customFetch<any>("/api/dashboard/sync-analytics", { method: "POST" });
+      if (data.success) {
+        queryClient.invalidateQueries({ queryKey: getDashboardStatsQueryKey(daysFilter) });
+        queryClient.invalidateQueries({ queryKey: getGetRecentActivityQueryKey() });
+        alert(`Sync complete! Found ${data.updatedCount} new engagement events.`);
+      } else {
+        alert(`Sync failed: ${data.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      console.error("Sync failed:", err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
   
   const filteredActivity = selectedDetailType 
     ? activity?.filter(item => item.type === selectedDetailType) || []
@@ -96,6 +141,23 @@ export default function Dashboard() {
               </button>
             ))}
           </div>
+
+          <div className="flex items-center gap-4 bg-muted/30 px-6 py-4 rounded-2xl border border-dashed">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-foreground">Sync Engagement History</p>
+              <p className="text-xs text-muted-foreground">Pull missing opens and clicks from your Resend account.</p>
+            </div>
+            <Button
+              variant="default"
+              size="lg"
+              onClick={handleSync}
+              disabled={isSyncing}
+              className="gap-2 font-bold shadow-lg shadow-primary/20 min-w-[160px]"
+            >
+              <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} />
+              {isSyncing ? "Syncing..." : "Sync Past Emails"}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -126,7 +188,7 @@ export default function Dashboard() {
             return (
               <motion.div key={i} variants={item}>
                 <button
-                  onClick={() => detailType && setSelectedDetailType(detailType as any)}
+                  onClick={() => detailType && handleStatClick(detailType as any)}
                   className="w-full text-left"
                   disabled={!detailType}
                 >
@@ -240,7 +302,7 @@ export default function Dashboard() {
                    'Who Clicked'}
                 </CardTitle>
                 <CardDescription className="mt-1">
-                  {filteredActivity.length} {selectedDetailType} {selectedDetailType === 'replied' ? 'replies' : selectedDetailType === 'opened' ? 'opens' : 'clicks'}
+                  {isLoadingDetail ? 'Loading...' : `${detailData.length} records found`}
                 </CardDescription>
               </div>
               <button
@@ -251,10 +313,22 @@ export default function Dashboard() {
               </button>
             </CardHeader>
             <CardContent className="pt-6 max-h-96 overflow-y-auto">
-              {filteredActivity.length > 0 ? (
+              {isLoadingDetail ? (
+                <div className="space-y-4 py-4">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="flex gap-3">
+                      <Skeleton className="w-10 h-10 rounded-full" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-4 w-1/3" />
+                        <Skeleton className="h-3 w-1/2" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : detailData.length > 0 ? (
                 <div className="space-y-4">
-                  {filteredActivity.map((item) => (
-                    <div key={item.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                  {detailData.map((item, idx) => (
+                    <div key={item.id || idx} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0
                         ${item.type === 'replied' ? 'bg-emerald-100 text-emerald-600' : 
                           item.type === 'opened' ? 'bg-purple-100 text-purple-600' :
@@ -267,7 +341,7 @@ export default function Dashboard() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-foreground">{item.recipientName}</p>
                         <p className="text-xs text-muted-foreground mt-1">{item.recipientEmail}</p>
-                        <p className="text-xs text-muted-foreground mt-1">{item.campaignName}</p>
+                        {item.campaignName && <p className="text-xs text-muted-foreground mt-1">{item.campaignName}</p>}
                         <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                           <Clock className="w-3 h-3" />
                           {formatDate(item.occurredAt)}

@@ -1,5 +1,5 @@
 import { mysqlTable, int, text, boolean } from "drizzle-orm/mysql-core";
-import { reasonsTable } from "./reasons";
+import { reasonsTable } from "./reasons.ts";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 

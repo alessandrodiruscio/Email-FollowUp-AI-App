@@ -16,7 +16,16 @@ interface ConnectorListResponse {
   items?: ConnectorItem[];
 }
 
-async function getResendCredentials(): Promise<{ apiKey: string; fromEmail: string } | null> {
+export async function getResendCredentials(): Promise<{ apiKey: string; fromEmail: string } | null> {
+  // First try direct environment variables (standard for AI Studio/manual config)
+  if (process.env.RESEND_API_KEY) {
+    return {
+      apiKey: process.env.RESEND_API_KEY,
+      fromEmail: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+    };
+  }
+
+  // Then try Replit connectors
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY
     ? "repl " + process.env.REPL_IDENTITY
@@ -115,22 +124,19 @@ export async function sendEmail(opts: SendEmailOptions): Promise<SendEmailResult
     });
     
     const { data, error } = response;
-    const id = data?.id;
     
-    console.log(`[sendEmail] Resend response for ${opts.to}:`, JSON.stringify({ id, error }));
-
     if (error) {
-      console.error("[sendEmail] Resend error:", error);
+      console.error(`[sendEmail] Resend API error for ${opts.to}:`, error);
       return { success: false, error: error.message };
     }
 
-    if (!id) {
+    if (!data?.id) {
       console.error("[sendEmail] No message ID returned from Resend");
       return { success: false, error: "No message ID returned from Resend" };
     }
 
-    console.log(`[sendEmail] Successfully sent email to ${opts.to}, messageId: ${id}`);
-    return { success: true, messageId: id };
+    console.log(`[sendEmail] Successfully sent email to ${opts.to}. Message ID: ${data.id}`);
+    return { success: true, messageId: data.id };
   } catch (err) {
     const error = err instanceof Error ? err.message : "Unknown error";
     console.error("[sendEmail] Error:", error);

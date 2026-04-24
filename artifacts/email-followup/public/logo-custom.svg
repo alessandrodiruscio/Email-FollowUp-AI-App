@@ -1,0 +1,24 @@
+<svg width="260" height="60" viewBox="0 0 260 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="arrow_grad" x1="0" y1="50" x2="50" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0284c7"/>
+      <stop offset="1" stop-color="#22d3ee"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Envelope Icon -->
+  <g transform="translate(10, 15)">
+    <!-- Envelope Base -->
+    <rect x="0" y="5" width="42" height="30" rx="3" stroke="#1e3a8a" stroke-width="3" fill="#f8fafc"/>
+    <path d="M0 10L21 24L42 12" stroke="#1e3a8a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    
+    <!-- Swoosh Arrow -->
+    <path d="M-8 40C5 30 20 25 50 2L38 4C38 4 41 8 41 8M50 2L47 15" 
+          stroke="url(#arrow_grad)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Text Section -->
+  <text x="75" y="42" fill="#1e3a8a" font-family="Inter, system-ui, sans-serif" font-weight="900" font-size="26" letter-spacing="-0.01em">
+    EMAIL FOLLOWUP
+  </text>
+</svg>

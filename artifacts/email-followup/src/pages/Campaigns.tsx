@@ -26,6 +26,8 @@ import {
   Search, 
   MoreVertical, 
   Mail, 
+  MailOpen,
+  MousePointerClick,
   Users, 
   Reply,
   Trash2,
@@ -130,9 +132,9 @@ export default function Campaigns() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const { data: campaignsData, isLoading } = useListCampaigns();
-  const campaigns = campaignsData || [];
-  const { data: templatesData = [] } = useListReasons();
-  const templates = templatesData || [];
+  const campaigns = Array.isArray(campaignsData) ? campaignsData : [];
+  const { data: templatesData } = useListReasons();
+  const templates = Array.isArray(templatesData) ? templatesData : [];
   const deleteMutation = useDeleteCampaign();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -175,15 +177,13 @@ export default function Campaigns() {
   };
 
   const handleDelete = async (id: number) => {
-    if (confirm("Are you sure you want to delete this campaign?")) {
-      deleteMutation.mutate({ id }, {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListCampaignsQueryKey() });
-          toast({ title: "Campaign deleted" });
-        },
-        onError: () => toast({ title: "Failed to delete", variant: "destructive" })
-      });
-    }
+    deleteMutation.mutate({ id }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListCampaignsQueryKey() });
+        toast({ title: "Campaign deleted" });
+      },
+      onError: () => toast({ title: "Failed to delete", variant: "destructive" })
+    });
   };
 
   return (
@@ -360,9 +360,9 @@ export default function Campaigns() {
                         </div>
                       </div>
 
-                    <div className="grid grid-cols-4 gap-2 pt-4 border-t border-border/50">
+                    <div className="grid grid-cols-3 gap-y-4 gap-x-2 pt-4 border-t border-border/50">
                       <div className="flex flex-col">
-                        <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-1">Recipients</span>
+                        <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-1">Contacts</span>
                         <div className="flex items-center gap-1.5 text-foreground font-bold">
                           <Users className="w-4 h-4 text-primary" />
                           {campaign.recipientCount}
@@ -383,7 +383,21 @@ export default function Campaigns() {
                         </div>
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-1">Follow-ups</span>
+                        <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-1">Opens</span>
+                        <div className="flex items-center gap-1.5 text-foreground font-bold">
+                          <MailOpen className="w-4 h-4 text-purple-500" />
+                          {campaign.openedCount ?? 0}
+                        </div>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-1">Clicks</span>
+                        <div className="flex items-center gap-1.5 text-foreground font-bold">
+                          <MousePointerClick className="w-4 h-4 text-pink-500" />
+                          {campaign.clickedCount ?? 0}
+                        </div>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-1">Steps</span>
                         <div className="flex items-center gap-1.5 text-foreground font-bold">
                           <Clock className="w-4 h-4 text-orange-500" />
                           {campaign.followUpCount ?? 0}

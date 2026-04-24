@@ -49,11 +49,10 @@ export default function Settings() {
   const [selectedLogo, setSelectedLogo] = useState<string>("1");
 
   const logos = [
-    { id: "custom", name: "Custom Logo", file: "/logo-custom.png" },
-    { id: "1", name: "Modern Minimalist", file: "/logo-option-1.png" },
-    { id: "2", name: "Forward Arrow", file: "/logo-option-2.png" },
-    { id: "3", name: "AI Sparkle", file: "/logo-option-3.png" },
-    { id: "4", name: "Clock Schedule", file: "/logo-option-4.png" },
+    { id: "custom", name: "Professional AI", file: "/logo-custom.svg" },
+    { id: "pulse", name: "AI Pulse", file: "/logo-ai-pulse.svg" },
+    { id: "connect", name: "Connect AI", file: "/logo-connect-ai.svg" },
+    { id: "outreach", name: "Smart Outreach", file: "/logo-smart-outreach.svg" },
   ];
 
   const handleLogoSelect = (logoId: string) => {
@@ -63,7 +62,7 @@ export default function Settings() {
   };
 
   const { data: reasonsData } = useListReasons();
-  const reasons = reasonsData || [];
+  const reasons = Array.isArray(reasonsData) ? reasonsData : [];
   const createReasonMutation = useCreateReason();
   const deleteReasonMutation = useDeleteReason();
 
@@ -78,7 +77,7 @@ export default function Settings() {
   useEffect(() => {
     const settings = getSettings();
     form.reset(settings);
-    const savedLogo = localStorage.getItem("selectedLogo") || "1";
+    const savedLogo = localStorage.getItem("selectedLogo") || "custom";
     setSelectedLogo(savedLogo);
     setIsLoading(false);
   }, [form]);

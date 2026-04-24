@@ -15,9 +15,11 @@ interface DashboardStats {
   clickRate: number;
 }
 
+export const getDashboardStatsQueryKey = (days: number) => ["dashboard", "stats", days];
+
 export function useDashboardStats(days: number = 30) {
   return useQuery({
-    queryKey: ["dashboard", "stats", days],
+    queryKey: getDashboardStatsQueryKey(days),
     queryFn: async () => {
       const response = await customFetch<DashboardStats>(
         `/api/dashboard/stats?days=${days}`,

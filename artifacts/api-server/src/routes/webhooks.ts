@@ -28,22 +28,32 @@ router.post("/resend", async (req, res) => {
     console.log(`[webhook] Body type:`, typeof req.body);
     console.log(`[webhook] Body keys:`, Object.keys(req.body || {}));
     
-    const payload: ResendWebhookPayload = req.body;
+    const payload: any = req.body;
     
-    console.log(`[webhook] Payload type: ${payload.type}`);
-    console.log(`[webhook] Received Resend event: ${payload.type} for message ${payload.data?.email_id}`);
+    // Resend webhooks can have nested data or be direct payloads depending on version/type
+    const type = payload.type;
+    const data = payload.data || {};
+    const emailId = data.email_id || data.id || payload.email_id || payload.id;
+    
+    console.log(`[webhook] Payload details:`, JSON.stringify(payload));
+    console.log(`[webhook] Payload type: ${type}`);
+    console.log(`[webhook] Received Resend event: ${type} for message ${emailId}`);
+
+    if (!emailId) {
+      console.warn(`[webhook] Missing email ID in payload:`, JSON.stringify(payload).substring(0, 500));
+      return res.status(400).json({ error: "Missing email ID" });
+    }
 
     // Try to find the sent email by messageId first
     let [sentEmail] = await db
       .select()
       .from(sentEmailsTable)
-      .where(eq(sentEmailsTable.messageId, payload.data.email_id));
+      .where(eq(sentEmailsTable.messageId, emailId));
 
     // If not found by messageId, try to find by recipient email + most recent sent email
-    // BUT only match emails sent within the last 30 days to avoid false positives
-    if (!sentEmail && payload.data.to) {
-      const recipientEmail = Array.isArray(payload.data.to) ? payload.data.to[0] : payload.data.to;
-      console.log(`[webhook] Message ID not found, looking up by recipient email: ${recipientEmail}`);
+    if (!sentEmail && data.to) {
+      const recipientEmail = Array.isArray(data.to) ? data.to[0] : data.to;
+      console.log(`[webhook] Message ID ${emailId} not found in DB, looking up by recipient email: ${recipientEmail}`);
       
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       
@@ -66,13 +76,14 @@ router.post("/resend", async (req, res) => {
     }
 
     if (!sentEmail) {
-      console.warn(`[webhook] Could not find sent email for message ${payload.data.email_id} or recipient ${payload.data.to}`);
+      console.warn(`[webhook] Could not find sent email for message ${emailId} or recipient ${data.to}`);
       return res.status(404).json({ error: "Message not found" });
     }
 
     // Map Resend event types to our event types
     const eventTypeMap: Record<string, string> = {
       "email.sent": "sent",
+      "email.delivered": "sent", // Map delivered to sent as well
       "email.opened": "opened",
       "email.clicked": "clicked",
       "email.bounced": "bounced",
@@ -80,20 +91,27 @@ router.post("/resend", async (req, res) => {
       "email.unsubscribed": "unsubscribed",
     };
 
-    const eventType = eventTypeMap[payload.type] || payload.type;
-    const timestamp = new Date(payload.created_at);
+    let eventType = type;
+    if (type && eventTypeMap[type]) {
+      eventType = eventTypeMap[type];
+    } else if (!type) {
+      // Fallback if type is missing but we have payload data
+      eventType = "sent"; 
+    }
+
+    const timestamp = payload.created_at ? new Date(payload.created_at) : new Date();
 
     // Store the event in the database
     await db.insert(emailEventsTable).values({
       sentEmailId: sentEmail.id,
-      messageId: payload.data.email_id,
+      messageId: emailId,
       eventType: eventType as any,
       timestamp,
-      metadata: JSON.stringify(payload.data),
+      metadata: JSON.stringify(payload),
     });
 
     console.log(
-      `[webhook] Stored ${eventType} event for message ${payload.data.email_id}`
+      `[webhook] Stored ${eventType} event for message ${emailId}`
     );
 
     res.json({ success: true });

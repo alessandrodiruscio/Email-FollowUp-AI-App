@@ -4,8 +4,9 @@
   "license": "MIT",
   "scripts": {
     "dev": "BASE_PATH=/ tsx artifacts/api-server/src/index.ts",
-    "start": "BASE_PATH=/ node artifacts/api-server/src/index.ts",
+    "start": "node artifacts/api-server/dist/index.cjs",
     "build": "BASE_PATH=/ PORT=3000 npm run build --workspaces --if-present",
+    "lint": "eslint . --ext .ts,.tsx",
     "typecheck:libs": "tsc --build",
     "typecheck": "npm run typecheck:libs && npm run typecheck --workspaces --if-present"
   },

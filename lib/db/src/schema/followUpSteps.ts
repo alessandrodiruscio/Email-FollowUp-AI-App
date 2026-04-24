@@ -2,7 +2,7 @@ import { mysqlTable, int, text, varchar, boolean, datetime } from "drizzle-orm/m
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
-import { campaignsTable } from "./campaigns";
+import { campaignsTable } from "./campaigns.ts";
 
 export const followUpStepsTable = mysqlTable("follow_up_steps", {
   id: int("id").primaryKey().autoincrement(),

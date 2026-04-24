@@ -1,9 +1,9 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import { db, connectionError } from "@workspace/db";
-import router from "./routes";
-import webhooksRouter from "./routes/webhooks";
-import initRouter from "./routes/init";
+import router from "./routes/index.ts";
+import webhooksRouter from "./routes/webhooks.ts";
+import initRouter from "./routes/init.ts";
 
 const app: Express = express();
 

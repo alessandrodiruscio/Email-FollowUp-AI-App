@@ -1,0 +1,13 @@
+<svg width="240" height="60" viewBox="0 0 240 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g3" x1="0" y1="0" x2="240" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#DC2626"/>
+      <stop offset="1" stop-color="#EF4444"/>
+    </linearGradient>
+  </defs>
+  <rect width="240" height="60" rx="8" fill="url(#g3)"/>
+  <path d="M25 15L55 30L25 45V15Z" fill="white" fill-opacity="0.2"/>
+  <path d="M25 15L55 30L25 45" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="55" cy="30" r="4" fill="white"/>
+  <text x="75" y="38" fill="white" font-family="sans-serif" font-weight="900" font-size="20">SMART OUTREACH</text>
+</svg>
