@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { GenerateEmailBody, GenerateFollowUpBody } from "@workspace/api-zod";
-import OpenAI from "openai";
+import { OpenAI } from "openai";
 
 const router: IRouter = Router();
 
@@ -55,7 +55,7 @@ Return JSON: {"subject": "...", "body": "..."}`;
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-5.2",
+      model: "gpt-4o",
       max_completion_tokens: 8192,
       messages: [
         { role: "system", content: systemPrompt },
@@ -112,7 +112,7 @@ Return JSON: {"subject": "...", "body": "..."}`;
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-5.2",
+      model: "gpt-4o",
       max_completion_tokens: 8192,
       messages: [
         { role: "system", content: systemPrompt },
