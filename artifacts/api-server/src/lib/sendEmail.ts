@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import { htmlToPlainText } from "./htmlToText";
+import { htmlToPlainText } from "./htmlToText.js";
 
 interface ConnectorSettings {
   api_key: string;

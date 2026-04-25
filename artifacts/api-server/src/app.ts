@@ -1,9 +1,9 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
-import { db, connectionError } from "../../../lib/db/src/index";
-import router from "./routes/index";
-import webhooksRouter from "./routes/webhooks";
-import initRouter from "./routes/init";
+import { db, connectionError } from "../../../lib/db/src/index.js";
+import router from "./routes/index.js";
+import webhooksRouter from "./routes/webhooks.js";
+import initRouter from "./routes/init.js";
 
 const app: Express = express();
 

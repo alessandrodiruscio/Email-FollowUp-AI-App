@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { GenerateEmailBody, GenerateFollowUpBody } from "../../../../lib/api-zod/src/index";
+import { GenerateEmailBody, GenerateFollowUpBody } from "../../../../lib/api-zod/src/index.js";
 import { OpenAI } from "openai";
 
 const router: IRouter = Router();
