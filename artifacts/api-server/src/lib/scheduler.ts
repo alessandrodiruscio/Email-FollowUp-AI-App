@@ -1,4 +1,4 @@
-import { db, connectionError, campaignsTable, recipientsTable, followUpStepsTable, sentEmailsTable } from "@workspace/db";
+import { db, connectionError, campaignsTable, recipientsTable, followUpStepsTable, sentEmailsTable } from "../../../../lib/db/src/index";
 import { eq, and, sql } from "drizzle-orm";
 import { sendEmail } from "./sendEmail";
 import { substituteVariables } from "./variableSubstitution";

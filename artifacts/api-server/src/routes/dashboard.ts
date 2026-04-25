@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, campaignsTable, recipientsTable, sentEmailsTable, followUpStepsTable, emailEventsTable } from "@workspace/db";
+import { db, campaignsTable, recipientsTable, sentEmailsTable, followUpStepsTable, emailEventsTable } from "../../../../lib/db/src/index";
 import { eq, count, and, sql, gte, isNotNull, inArray, desc } from "drizzle-orm";
 import { getResendCredentials } from "../lib/sendEmail";
 import { Resend } from "resend";

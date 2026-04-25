@@ -1,6 +1,6 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
-import { db, connectionError } from "@workspace/db";
+import { db, connectionError } from "../../../lib/db/src/index";
 import router from "./routes/index";
 import webhooksRouter from "./routes/webhooks";
 import initRouter from "./routes/init";

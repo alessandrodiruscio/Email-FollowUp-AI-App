@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, campaignsTable, recipientsTable, followUpStepsTable, sentEmailsTable, emailEventsTable, reasonsTable, reasonFollowUpTemplatesTable } from "@workspace/db";
+import { db, campaignsTable, recipientsTable, followUpStepsTable, sentEmailsTable, emailEventsTable, reasonsTable, reasonFollowUpTemplatesTable } from "../../../../lib/db/src/index";
 import { eq, count, and, sql } from "drizzle-orm";
 import {
   CreateCampaignBody,
@@ -22,7 +22,7 @@ import {
   UpdateFollowUpStepParams,
   UpdateFollowUpStepBody,
   DeleteFollowUpStepParams,
-} from "@workspace/api-zod";
+} from "../../../../lib/api-zod/src/index";
 import { sendEmail, getResendCredentials } from "../lib/sendEmail";
 import { substituteVariables } from "../lib/variableSubstitution";
 
