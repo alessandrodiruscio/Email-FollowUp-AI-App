@@ -29,9 +29,15 @@ if (!process.env.DATABASE_URL) {
   connectionError = new Error("DATABASE_URL must be set.");
 } else {
   try {
-    // Parse DATABASE_URL explicitly for Hostinger MySQL compatibility
-    // URL format: mysql://user:password@host:port/database
-    const dbUrl = new URL(process.env.DATABASE_URL);
+    console.log("[db] Initializing with DATABASE_URL:", process.env.DATABASE_URL ? "SET (length: " + process.env.DATABASE_URL.length + ")" : "MISSING");
+    // Parse DATABASE_URL explicitly
+    let dbUrl: URL;
+    try {
+      dbUrl = new URL(process.env.DATABASE_URL);
+    } catch (urlErr) {
+      console.error("[db] Invalid DATABASE_URL format:", process.env.DATABASE_URL);
+      throw new Error(`Invalid DATABASE_URL format. Please ensure it starts with mysql:// and is a valid URL.`);
+    }
     
     // Log connection details for debugging
     console.log("[db] Connecting to:", dbUrl.hostname);

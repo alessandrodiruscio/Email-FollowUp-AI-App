@@ -11,9 +11,19 @@
     "typecheck": "npm run typecheck:libs && npm run typecheck --workspaces --if-present"
   },
   "private": true,
-  "devDependencies": {
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
     "dotenv": "^17.4.2",
-    "express": "^5.2.1",
+    "drizzle-orm": "^0.45.1",
+    "drizzle-zod": "^0.8.3",
+    "express": "^4.21.2",
+    "mysql2": "^3.11.5",
+    "openai": "^6.31.0",
+    "resend": "^6.9.4",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
     "prettier": "^3.8.1",
     "tsx": "^4.21.0",
     "typescript": "~5.9.2",
