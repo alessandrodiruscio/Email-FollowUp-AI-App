@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-import { conversations } from "./conversations";
+import { conversations } from "./conversations.js";
 
 export const messages = mysqlTable("messages", {
   id: int("id").primaryKey().autoincrement(),

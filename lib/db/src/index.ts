@@ -7,6 +7,8 @@ import * as recipients from "./schema/recipients.js";
 import * as followUpSteps from "./schema/followUpSteps.js";
 import * as sentEmails from "./schema/sentEmails.js";
 import * as emailEvents from "./schema/emailEvents.js";
+import * as conversations from "./schema/conversations.js";
+import * as messages from "./schema/messages.js";
 
 const schema = {
   ...campaigns,
@@ -16,6 +18,8 @@ const schema = {
   ...followUpSteps,
   ...sentEmails,
   ...emailEvents,
+  ...conversations,
+  ...messages,
 };
 
 let poolConnection: ReturnType<typeof mysql.createPool> | null = null;
@@ -81,3 +85,5 @@ export * from "./schema/recipients.js";
 export * from "./schema/followUpSteps.js";
 export * from "./schema/sentEmails.js";
 export * from "./schema/emailEvents.js";
+export * from "./schema/conversations.js";
+export * from "./schema/messages.js";
