@@ -26,7 +26,7 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
-    port,
+    port: 3000,
     host: "0.0.0.0",
     allowedHosts: true,
     hmr: false,
@@ -36,7 +36,7 @@ export default defineConfig({
     },
   },
   preview: {
-    port,
+    port: 3000,
     host: "0.0.0.0",
     allowedHosts: true,
   },

@@ -1,6 +1,5 @@
 {
-  "name": "Email Follow-up App",
-  "description": "An application imported from GitHub to manage email follow-ups.",
-  "requestFramePermissions": [],
-  "majorCapabilities": []
+  "name": "FollowUp AI",
+  "description": "Smart outreach automation platform to manage email campaigns, follow-ups, and AI-powered email generation.",
+  "requestFramePermissions": []
 }

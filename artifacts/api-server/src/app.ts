@@ -1,13 +1,15 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
-import { db, connectionError } from "../../../lib/db/src/index.js";
-import router from "./routes/index.js";
-import webhooksRouter from "./routes/webhooks.js";
-import initRouter from "./routes/init.js";
+import cookieParser from "cookie-parser";
+import { db, connectionError } from "../../../lib/db/src/index";
+import router from "./routes/index";
+import webhooksRouter from "./routes/webhooks";
+import initRouter from "./routes/init";
 
 const app: Express = express();
 
 app.use(cors());
+app.use(cookieParser());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
@@ -25,7 +27,12 @@ app.use("/api", (req: Request, res: Response, next: NextFunction) => {
 
 // Global request logging middleware
 app.use((req: Request, res: Response, next: NextFunction) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} (raw path: ${req.originalUrl})`);
+  const start = Date.now();
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`);
+  });
+  
   if ((req.method === "POST" || req.method === "PUT") && req.body) {
     const bodyStr = JSON.stringify(req.body);
     console.log("Body:", bodyStr.substring(0, 300));
@@ -36,6 +43,10 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 // Test health endpoint
 app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+app.get("/api/ping", (req, res) => {
+  res.json({ message: "pong", dbConnected: !!db });
 });
 
 app.use("/api", router);

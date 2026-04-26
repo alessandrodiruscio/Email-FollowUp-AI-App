@@ -68,7 +68,7 @@ async function processFollowUps() {
 
         if (new Date() >= scheduledAt) {
           // Build footer for follow-up email if campaign has footer fields and step includes footer
-          let followUpBody = step.body;
+          const followUpBody = step.body;
           let htmlFollowUpBody = step.body.replace(/\n/g, "<br/>");
           
           if (campaign.footerName && step.includeFooter) {

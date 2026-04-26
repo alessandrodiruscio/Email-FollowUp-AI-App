@@ -1,6 +1,10 @@
-const { defineConfig } = require("drizzle-kit");
-const path = require("path");
-const dotenv = require("dotenv");
+import { defineConfig } from "drizzle-kit";
+import path from "path";
+import dotenv from "dotenv";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load .env from workspace root
 const workspaceRoot = path.resolve(__dirname, "../../");

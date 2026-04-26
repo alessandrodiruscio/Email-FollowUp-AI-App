@@ -81,7 +81,7 @@ export default function Recipients() {
     if (aVal === null || aVal === undefined) return 1;
     if (bVal === null || bVal === undefined) return -1;
 
-    let comparison = 0;
+    let comparison;
     if (typeof aVal === "string") {
       comparison = aVal.toLowerCase().localeCompare(bVal.toString().toLowerCase());
     } else {

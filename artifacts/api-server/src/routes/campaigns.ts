@@ -132,7 +132,7 @@ router.get("/campaigns", async (req, res) => {
       
       // 3. Get follow-up steps (either count or full list)
       let followUpSteps: any[] = [];
-      let followUpCount = 0;
+      let followUpCount;
       
       if (includeDetails) {
         followUpSteps = await db
@@ -151,7 +151,7 @@ router.get("/campaigns", async (req, res) => {
       
       // 4. Get recipients (either first one for display or full list for calendar)
       let recipients: any[] = [];
-      let firstRecipientData = null;
+      let firstRecipientData;
       
       if (includeDetails) {
         recipients = await db
@@ -592,8 +592,7 @@ router.post("/campaigns/:id/test-email", async (req, res) => {
   let emailSubject = campaign.subject;
   let emailBody = campaign.body;
   let includeFooter = true; // Default to true for initial email (campaigns don't have includeFooter column)
-  let originalSubject = campaign.subject;
-  let originalBody = campaign.body;
+  const originalSubject = campaign.subject;
 
   if (stepNumber !== undefined && stepNumber > 0) {
     // Fetch the follow-up step

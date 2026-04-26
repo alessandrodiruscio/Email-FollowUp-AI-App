@@ -1,53 +1,43 @@
-import "./env.js";
+import "./env";
 import express from "express";
 import path from "path";
-import app from "./app.js";
-import { startScheduler } from "./lib/scheduler.js";
+import app from "./app";
+import { startScheduler } from "./lib/scheduler";
 
 async function main() {
-  console.log("DATABASE_URL:", process.env.DATABASE_URL ? process.env.DATABASE_URL.substring(0, 50) + "..." : "NOT SET");
-
+  console.log("[server] Starting server initialization...");
+  
   // Vite integration for AI Studio
+  const vitePath = path.resolve(process.cwd(), "artifacts/email-followup");
+  console.log(`[server] Vite root path: ${vitePath}`);
+
+  const port = 3000;
+  console.log(`[server] Attempting to listen on port ${port}...`);
+
   if (process.env.NODE_ENV !== "production") {
     const { createServer: createViteServer } = await import("vite");
-    const vitePath = path.resolve(process.cwd(), "artifacts/email-followup");
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
         hmr: false,
-        watch: {
-          usePolling: true,
-          interval: 1000
-        }
       },
       appType: "spa",
       root: vitePath
     });
+    console.log("[server] Vite server created in SPA mode.");
     app.use(vite.middlewares);
+    console.log("[server] Vite middlewares mounted.");
   } else {
-    const distPath = path.resolve(process.cwd(), "artifacts/email-followup/dist/public");
+    const distPath = path.resolve(vitePath, "dist/public");
+    console.log(`[server] Serving static from ${distPath}`);
     app.use(express.static(distPath));
-    app.get("*all", (req, res) => {
+    app.use((req, res) => {
       res.sendFile(path.resolve(distPath, "index.html"));
     });
   }
 
-  const rawPort = process.env["PORT"] || "3000";
-
-  if (!rawPort) {
-    throw new Error(
-      "PORT environment variable is required but was not provided.",
-    );
-  }
-
-  const port = Number(rawPort);
-
-  if (Number.isNaN(port) || port <= 0) {
-    throw new Error(`Invalid PORT value: "${rawPort}"`);
-  }
-
   app.listen(port, "0.0.0.0", () => {
-    console.log(`Server listening on port ${port}`);
+    console.log(`[server] Server listening on port ${port}`);
     startScheduler();
   });
 }
