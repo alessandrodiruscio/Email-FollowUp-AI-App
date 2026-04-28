@@ -8,10 +8,16 @@ import initRouter from "./routes/init";
 
 const app: Express = express();
 
+app.set('strict routing', false);
+
 app.use(cors());
 app.use(cookieParser());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// 1. WEBHOOKS FIRST - Absolute priority to avoid any redirects or auth middleware
+app.use("/webhooks", webhooksRouter);
+app.use("/api/webhooks", webhooksRouter);
 
 // Database readiness check for API routes
 app.use("/api", (req: Request, res: Response, next: NextFunction) => {
@@ -28,15 +34,20 @@ app.use("/api", (req: Request, res: Response, next: NextFunction) => {
 // Global request logging middleware
 app.use((req: Request, res: Response, next: NextFunction) => {
   const start = Date.now();
+  const requestId = Math.random().toString(36).substring(7);
+  
+  if (req.method === "POST" || req.path.includes("webhook")) {
+    console.log(`[REQ-${requestId}] ${req.method} ${req.originalUrl} from ${req.ip}`);
+    console.log(`[REQ-${requestId}] Headers: ${JSON.stringify(req.headers)}`);
+  }
+  
   res.on("finish", () => {
     const duration = Date.now() - start;
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`);
+    if (req.method === "POST" || req.path.includes("webhook")) {
+      console.log(`[REQ-${requestId}] ${req.method} ${req.path} -> ${res.statusCode} (${duration}ms)`);
+    }
   });
   
-  if ((req.method === "POST" || req.method === "PUT") && req.body) {
-    const bodyStr = JSON.stringify(req.body);
-    console.log("Body:", bodyStr.substring(0, 300));
-  }
   next();
 });
 
@@ -49,8 +60,8 @@ app.get("/api/ping", (req, res) => {
   res.json({ message: "pong", dbConnected: !!db });
 });
 
+// Mount routes
 app.use("/api", router);
-app.use("/api/webhooks", webhooksRouter);
 app.use("/api", initRouter);
 
 interface ZodIssue {

@@ -9,6 +9,7 @@ import * as sentEmails from "./schema/sentEmails";
 import * as emailEvents from "./schema/emailEvents";
 import * as conversations from "./schema/conversations";
 import * as messages from "./schema/messages";
+import * as webhookLogs from "./schema/webhookLogs";
 
 const schema = {
   ...campaigns,
@@ -20,6 +21,7 @@ const schema = {
   ...emailEvents,
   ...conversations,
   ...messages,
+  ...webhookLogs,
 };
 
 let poolConnection: ReturnType<typeof mysql.createPool> | null = null;
@@ -87,3 +89,4 @@ export * from "./schema/sentEmails";
 export * from "./schema/emailEvents";
 export * from "./schema/conversations";
 export * from "./schema/messages";
+export * from "./schema/webhookLogs";

@@ -1,11 +1,11 @@
 import { useGetRecentActivity, customFetch, getGetRecentActivityQueryKey } from "@workspace/api-client-react";
 import { useDashboardStats, getDashboardStatsQueryKey } from "@/hooks/useDashboardStats";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Mail, CheckCircle2, Users, Clock, ArrowUpRight, Inbox, MailOpen, MousePointerClick, X, RefreshCw } from "lucide-react";
+import { Mail, CheckCircle2, Users, Clock, ArrowUpRight, Inbox, MailOpen, MousePointerClick, X, RefreshCw, Activity } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate } from "@/lib/utils";
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -142,22 +142,49 @@ export default function Dashboard() {
             ))}
           </div>
 
-          <div className="flex items-center gap-4 bg-muted/30 px-6 py-4 rounded-2xl border border-dashed">
-            <div className="space-y-1">
-              <p className="text-sm font-semibold text-foreground">Sync Engagement History</p>
-              <p className="text-xs text-muted-foreground">Pull missing opens and clicks from your Resend account.</p>
+          <div className="flex flex-col md:flex-row items-stretch gap-6 bg-muted/20 p-6 rounded-2xl border border-dashed">
+            <div className="flex-1 space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <p className="text-sm font-semibold text-foreground">Webhook Endpoint Active</p>
+              </div>
+              <p className="text-xs text-muted-foreground">Configure this URL in your Resend Dashboard to receive real-time updates for opens and clicks.</p>
+              <div className="flex items-center gap-2 mt-2">
+                <code className="text-[11px] font-mono bg-background/80 p-2 rounded border flex-1 break-all">
+                  {window.location.origin}/api/webhooks/resend
+                </code>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/api/webhooks/resend`);
+                  }}
+                  className="shrink-0"
+                >
+                  Copy
+                </Button>
+              </div>
             </div>
-            <Button
-              variant="default"
-              size="lg"
-              onClick={handleSync}
-              disabled={isSyncing}
-              className="gap-2 font-bold shadow-lg shadow-primary/20 min-w-[160px]"
-            >
-              <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} />
-              {isSyncing ? "Syncing..." : "Sync Past Emails"}
-            </Button>
+            
+            <div className="flex items-center gap-4 bg-background/40 p-4 rounded-xl border">
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-foreground">Sync History</p>
+                <p className="text-xs text-muted-foreground text-right font-medium">Force update analytics.</p>
+              </div>
+              <Button
+                variant="default"
+                size="lg"
+                onClick={handleSync}
+                disabled={isSyncing}
+                className="gap-2 font-bold shadow-lg shadow-primary/20 min-w-[140px]"
+              >
+                <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} />
+                {isSyncing ? "Syncing..." : "Sync Now"}
+              </Button>
+            </div>
           </div>
+
+          <WebhookDebugSection />
         </div>
       </div>
 
@@ -360,6 +387,218 @@ export default function Dashboard() {
           </Card>
         </div>
       )}
+    </div>
+  );
+}
+
+function WebhookDebugSection() {
+  const [logs, setLogs] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [actionStatus, setActionStatus] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
+
+  const fetchLogs = async () => {
+    setIsLoading(true);
+    try {
+      const data = await customFetch<any[]>('/api/dashboard/webhook-debug');
+      setLogs(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Failed to fetch logs:", err);
+      setLogs([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLogs();
+    const timer = setInterval(fetchLogs, 10000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const showStatus = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setActionStatus({ message, type });
+    setTimeout(() => setActionStatus(null), 5000);
+  };
+
+  return (
+    <div className="mt-12 space-y-6 pt-8 border-t border-dashed">
+      {actionStatus && (
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`p-3 rounded-lg text-sm font-medium flex items-center shadow-sm border ${
+            actionStatus.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+            actionStatus.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' :
+            'bg-blue-50 text-blue-700 border-blue-200'
+          }`}
+        >
+          <Activity className="w-4 h-4 mr-2" />
+          {actionStatus.message}
+        </motion.div>
+      )}
+
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+            <Activity className="w-5 h-5 text-primary" />
+            Live Webhook Monitor
+          </h3>
+          <p className="text-sm text-muted-foreground">Monitor real-time events from Resend. Use this to verify your webhook connection.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              showStatus("Simulating event...");
+              try {
+                const res = await fetch("/api/webhooks/resend", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    type: "email.opened",
+                    created_at: new Date().toISOString(),
+                    data: {
+                      email_id: "test-debug-" + Math.random().toString(36).substring(7),
+                      to: "test@example.com"
+                    }
+                  })
+                });
+                const data = await res.json();
+                showStatus(`Simulate Success: ${data.status || 'OK'}`, 'success');
+                setTimeout(fetchLogs, 500);
+              } catch (e) {
+                showStatus(`Simulate failed: ${e}`, 'error');
+              }
+            }}
+            className="text-xs h-9 bg-primary/5 hover:bg-primary/10 border-primary/20"
+          >
+            Simulate Event
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const origin = window.location.origin;
+              const isDev = origin.includes('ais-dev');
+              
+              // External webhooks MUST use the ais-pre origin
+              const publicOrigin = isDev ? origin.replace('ais-dev', 'ais-pre') : origin;
+              const webhookUrl = `${publicOrigin}/api/webhooks/resend`;
+              
+              const message = `
+⚠️ WEBHOOK CONFIGURATION REQUIRED
+
+1. Copy this Public URL:
+${webhookUrl}
+
+2. Go to your Resend Dashboard > Webhooks.
+3. Update your Webhook URL to the one above.
+
+Note: The "ais-dev" URL is private and will reject Resend events with a 302 Redirect. You must use the "ais-pre" version.
+              `.trim();
+              
+              navigator.clipboard.writeText(webhookUrl);
+              alert(message);
+              showStatus("Public URL copied!", "success");
+            }}
+            className="text-xs h-9"
+          >
+            Copy Webhook URL
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              showStatus("Verifying endpoint...");
+              try {
+                const res = await fetch("/api/webhooks/resend", { method: "GET" });
+                const data = await res.json();
+                showStatus(`Endpoint: ${data.status || 'Active'}`, 'success');
+              } catch (e) {
+                showStatus(`Verify failed: ${e}`, 'error');
+              }
+            }}
+            className="text-xs h-9"
+          >
+            Test Connection
+          </Button>
+          <Button variant="ghost" size="sm" onClick={fetchLogs} className="text-xs h-9">
+            <RefreshCw className={`w-3 h-3 mr-1 ${isLoading ? 'animate-spin' : ''}`} /> Refresh
+          </Button>
+        </div>
+      </div>
+      
+      <div className="bg-background rounded-2xl border shadow-sm overflow-hidden min-h-[200px]">
+        {logs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center px-4">
+            {isLoading ? (
+              <RefreshCw className="w-8 h-8 text-muted-foreground/30 animate-spin mb-4" />
+            ) : (
+              <Activity className="w-8 h-8 text-muted-foreground/30 mb-4" />
+            )}
+            <h4 className="text-sm font-semibold text-foreground">No events received yet</h4>
+            <p className="text-xs text-muted-foreground mt-1 max-w-xs">
+              Waiting for Resend events. Send a test email and check your Resend dashboard logs.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-[11px]">
+              <thead className="bg-muted/50 border-b">
+                <tr>
+                  <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">Time</th>
+                  <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">Status</th>
+                  <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">Event</th>
+                  <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">Message ID</th>
+                  <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px] text-muted-foreground">Details</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-muted/30">
+                {logs.map((log: any) => {
+                  let payload: any = {};
+                  try {
+                    payload = typeof log.payload === 'string' ? JSON.parse(log.payload) : log.payload;
+                  } catch (e) {
+                    payload = { type: 'invalid_json' };
+                  }
+                  
+                  const emailId = payload?.data?.email_id || payload?.email_id || 'N/A';
+                  const eventTime = log.receivedAt || log.received_at;
+                  
+                  return (
+                    <tr key={log.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="px-4 py-3 whitespace-nowrap text-muted-foreground font-mono">
+                        {eventTime ? new Date(eventTime).toLocaleTimeString() : '--'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-tighter ${
+                          log.status === 'success' ? 'bg-emerald-100 text-emerald-700' : 
+                          log.status === 'processing' ? 'bg-blue-100 text-blue-700' :
+                          log.status === 'skipped' ? 'bg-gray-100 text-gray-700' :
+                          log.status === 'orphan' ? 'bg-amber-100 text-amber-700' :
+                          'bg-red-100 text-red-700'
+                        }`}>
+                          {log.status || 'unknown'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 font-bold text-foreground">
+                        {payload?.type ? payload.type.replace('email.', '') : 'unknown'}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-muted-foreground truncate max-w-[150px]">
+                        {emailId}
+                      </td>
+                      <td className="px-4 py-3 max-w-xs truncate text-muted-foreground italic">
+                        {log.error || 'Successfully processed'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

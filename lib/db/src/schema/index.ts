@@ -7,3 +7,4 @@ export * from "./sentEmails.js";
 export * from "./emailEvents.js";
 export * from "./conversations.js";
 export * from "./messages.js";
+export * from "./webhookLogs.js";

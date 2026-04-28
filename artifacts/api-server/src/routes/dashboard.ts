@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, campaignsTable, recipientsTable, sentEmailsTable, followUpStepsTable, emailEventsTable } from "../../../../lib/db/src/index.js";
+import { db, campaignsTable, recipientsTable, sentEmailsTable, followUpStepsTable, emailEventsTable, webhookLogsTable } from "../../../../lib/db/src/index.js";
 import { eq, count, and, sql, gte, isNotNull, inArray, desc } from "drizzle-orm";
 import { getResendCredentials } from "../lib/sendEmail.js";
 import { Resend } from "resend";
@@ -213,7 +213,7 @@ router.get("/dashboard/stats", async (req, res) => {
 });
 
 router.get("/dashboard/recent-activity", async (_req, res) => {
-  // 1. Get recent email events (opens, clicks)
+  // 1. Get recent email events (opens, clicks) - increased limit
   const emailEvents = await db
     .select({
       id: emailEventsTable.id,
@@ -222,12 +222,12 @@ router.get("/dashboard/recent-activity", async (_req, res) => {
       timestamp: emailEventsTable.timestamp,
     })
     .from(emailEventsTable)
-    .where(sql`${emailEventsTable.eventType} IN ('opened', 'clicked')`)
-    .orderBy(sql`${emailEventsTable.timestamp} DESC`)
-    .limit(50);
+    .where(inArray(emailEventsTable.eventType, ['opened', 'clicked'] as any))
+    .orderBy(desc(emailEventsTable.timestamp))
+    .limit(100);
 
-  // 2. Get recent sent emails
-  const sentEmails = await db
+  // 2. Get recent sent emails - increased limit
+  const sentEmailsData = await db
     .select({
       id: sentEmailsTable.id,
       subject: sentEmailsTable.subject,
@@ -243,14 +243,14 @@ router.get("/dashboard/recent-activity", async (_req, res) => {
     .innerJoin(recipientsTable, eq(sentEmailsTable.recipientId, recipientsTable.id))
     .innerJoin(campaignsTable, eq(recipientsTable.campaignId, campaignsTable.id))
     .where(eq(sentEmailsTable.status, "sent"))
-    .orderBy(sql`${sentEmailsTable.sentAt} DESC`)
-    .limit(50);
+    .orderBy(desc(sentEmailsTable.sentAt))
+    .limit(100);
 
   // 3. For any email events associated with emails not currently in the recent sent list,
   // we should ideally fetch those too, but for simplicity and performance in a dashboard
   // we'll pool all potentially relevant sent email IDs first.
   const allNeededEmailIds = Array.from(new Set([
-    ...sentEmails.map((se: any) => se.id),
+    ...sentEmailsData.map((se: any) => se.id),
     ...emailEvents.map((e: any) => e.sentEmailId)
   ]));
 
@@ -287,7 +287,7 @@ router.get("/dashboard/recent-activity", async (_req, res) => {
   const repliedEmails = new Set<string>();
 
   // Use the top 30 most recent sent emails for the 'sent' activities
-  for (const se of (sentEmails as any[]).slice(0, 30)) {
+  for (const se of (sentEmailsData as any[]).slice(0, 30)) {
     activity.push({
       id: se.id,
       type: se.stepNumber === 0 ? "sent" : "followup_sent",
@@ -330,7 +330,42 @@ router.get("/dashboard/recent-activity", async (_req, res) => {
 
   activity.sort((a: any, b: any) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime());
 
-  return res.json(activity.slice(0, 30));
+  console.log(`[dashboard] Returning ${activity.length} activity items. Events: ${emailEvents.length}, Sent: ${sentEmailsData.length}`);
+
+  return res.json(activity.slice(0, 50));
+});
+
+router.get("/dashboard/webhook-debug", async (req, res) => {
+  try {
+    // Attempt simple query
+    const logs = await db
+      .select()
+      .from(webhookLogsTable)
+      .orderBy(desc(webhookLogsTable.receivedAt))
+      .limit(50);
+    return res.json(logs);
+  } catch (error: any) {
+    // If table doesn't exist, try to create it and return empty
+    if (error.message && (error.message.includes("webhook_logs") || error.message.includes("does not exist"))) {
+      try {
+        console.log("[dashboard] Creating webhook_logs table on demand...");
+        await db.execute(sql`
+          CREATE TABLE IF NOT EXISTS webhook_logs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            payload TEXT NOT NULL,
+            received_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            status VARCHAR(50),
+            error TEXT
+          )
+        `);
+        return res.json([]);
+      } catch (createError) {
+        console.error("[dashboard] Failed to create webhook_logs table:", createError);
+      }
+    }
+    console.error("[dashboard] Webhook debug error:", error);
+    return res.status(500).json({ error: String(error) });
+  }
 });
 
 router.get("/dashboard/activity-detail", async (req, res) => {
