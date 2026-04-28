@@ -4,8 +4,8 @@ import { eq, desc, and, sql } from "drizzle-orm";
 
 const router = Router();
 
-// Universal handler for /resend to debug any Resend activity
-router.all(["/resend", "/resend/"], (req, res) => {
+// Universal handler to debug any Resend activity
+router.all(["/", "/resend", "/resend/"], (req, res) => {
   const timestamp = new Date();
   console.log(`[webhook] Incoming ${req.method} to ${req.originalUrl} from ${req.ip}`);
   

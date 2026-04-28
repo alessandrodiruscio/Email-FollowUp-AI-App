@@ -484,18 +484,23 @@ function WebhookDebugSection() {
               
               // External webhooks MUST use the ais-pre origin
               const publicOrigin = isDev ? origin.replace('ais-dev', 'ais-pre') : origin;
-              const webhookUrl = `${publicOrigin}/api/webhooks/resend`;
+              const webhookUrl = `${publicOrigin}/public/resend`;
               
               const message = `
-⚠️ WEBHOOK CONFIGURATION REQUIRED
+⚠️ WEBHOOK SETUP GUIDE
 
-1. Copy this Public URL:
+1. ENSURE APP IS SHARED:
+Click the "Share" button in AI Studio (top right) and ensure it is "Shared". If not shared, the webhook URL will return a 404.
+
+2. COPY THIS URL:
 ${webhookUrl}
 
-2. Go to your Resend Dashboard > Webhooks.
-3. Update your Webhook URL to the one above.
+3. GO TO RESEND:
+Dashboard > Webhooks > Add Webhook.
 
-Note: The "ais-dev" URL is private and will reject Resend events with a 302 Redirect. You must use the "ais-pre" version.
+4. CONFIGURE:
+- Endpoint URL: (Paste the URL above)
+- Events: email.sent, email.delivered, email.opened, email.clicked.
               `.trim();
               
               navigator.clipboard.writeText(webhookUrl);
@@ -512,7 +517,7 @@ Note: The "ais-dev" URL is private and will reject Resend events with a 302 Redi
             onClick={async () => {
               showStatus("Verifying endpoint...");
               try {
-                const res = await fetch("/api/webhooks/resend", { method: "GET" });
+                const res = await fetch("/public/resend", { method: "GET" });
                 const data = await res.json();
                 showStatus(`Endpoint: ${data.status || 'Active'}`, 'success');
               } catch (e) {

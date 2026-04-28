@@ -10,14 +10,24 @@ const app: Express = express();
 
 app.set('strict routing', false);
 
+// GLOBAL LOGGING FOR DEBUGGING WEBHOOKS
+app.use((req, res, next) => {
+  if (req.url.includes('resend') || req.method === 'POST') {
+    console.log(`[ENTRY] ${req.method} ${req.url} from ${req.ip}`);
+  }
+  next();
+});
+
 app.use(cors());
 app.use(cookieParser());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // 1. WEBHOOKS FIRST - Absolute priority to avoid any redirects or auth middleware
-app.use("/webhooks", webhooksRouter);
+app.use("/public", webhooksRouter);
+app.use("/resend-webhook", webhooksRouter);
 app.use("/api/webhooks", webhooksRouter);
+app.use("/webhooks", webhooksRouter);
 
 // Database readiness check for API routes
 app.use("/api", (req: Request, res: Response, next: NextFunction) => {
