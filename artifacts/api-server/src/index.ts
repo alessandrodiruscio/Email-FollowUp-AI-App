@@ -57,7 +57,7 @@ async function main() {
       }
     }
     
-    res.json(diagnostic);
+    return res.json(diagnostic);
   });
 
   if (process.env.NODE_ENV !== "production") {
@@ -84,11 +84,11 @@ async function main() {
     
     // API 404s
     app.use("/api", (req, res) => {
-      res.status(404).json({ error: "API endpoint not found" });
+      return res.status(404).json({ error: "API endpoint not found" });
     });
 
     // SPA fallback
-    app.get("*", (req, res) => {
+    app.get("(.*)", (req, res) => {
       // If it looks like a static asset but wasn't served by express.static, return 404
       if (req.path.includes(".") && !req.path.endsWith(".html")) {
         return res.status(404).send("Not found");
@@ -96,9 +96,9 @@ async function main() {
       
       const indexPath = path.resolve(distPath, "index.html");
       if (fs.existsSync(indexPath)) {
-        res.sendFile(indexPath);
+        return res.sendFile(indexPath);
       } else {
-        res.status(404).send(`Frontend not found in: ${indexPath}`);
+        return res.status(404).send(`Frontend not found in: ${indexPath}`);
       }
     });
   }

@@ -41,7 +41,7 @@ function WebhookSetupDialog() {
       } else {
         setLocalStatus("Server returned unexpected response.");
       }
-    } catch (e) {
+    } catch (e: any) {
       setLocalStatus("Could not reach local server.");
       console.error(e);
     }
@@ -83,7 +83,7 @@ function WebhookSetupDialog() {
         toast.error("Public POST failed. Received unexpected response.");
         alert("❌ FAILED: Received unexpected response from server.");
       }
-    } catch (e) {
+    } catch (e: any) {
       const msg = e instanceof Error ? e.message : String(e);
       toast.error(`Public POST failed: ${msg}`);
       console.error(e);
@@ -625,7 +625,7 @@ function WebhookDebugSection() {
                 const data = await res.json();
                 showStatus(`Simulate Success: ${data.status || 'OK'}`, 'success');
                 setTimeout(fetchLogs, 500);
-              } catch (e) {
+              } catch (e: any) {
                 showStatus(`Simulate failed: ${e}`, 'error');
               }
             }}
@@ -643,7 +643,7 @@ function WebhookDebugSection() {
                 const res = await fetch("/p", { method: "GET" });
                 const data = await res.json();
                 showStatus(`Endpoint: ${data.message || 'Active'}`, 'success');
-              } catch (e) {
+              } catch (e: any) {
                 showStatus(`Verify failed: ${e}`, 'error');
               }
             }}
@@ -687,7 +687,7 @@ function WebhookDebugSection() {
                   let parsedPayload: any;
                   try {
                     parsedPayload = typeof log.payload === 'string' ? JSON.parse(log.payload) : (log.payload || {});
-                  } catch (e) {
+                  } catch (e: any) {
                     parsedPayload = { type: 'invalid_json' };
                   }
                   

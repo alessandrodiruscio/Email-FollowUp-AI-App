@@ -99,7 +99,7 @@ export function RichTextEditor({
       if (editor.getHTML() !== htmlContent) {
         try {
           editor.commands.setContent(htmlContent, false);
-        } catch (e) {
+        } catch (e: any) {
           console.error("Failed to set editor content:", e);
         }
       }

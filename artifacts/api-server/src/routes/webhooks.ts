@@ -29,7 +29,7 @@ router.all(["/", "/resend", "/resend/"], (req, res) => {
   // Handle POST (the real webhook)
   if (req.method === "POST") {
     // Respond immediately to Svix/Resend to prevent "Attempting" (timeout)
-    res.status(200).json({ received: true });
+    const response = res.status(200).json({ received: true });
     
     // Process in background
     (async () => {
@@ -125,7 +125,7 @@ router.all(["/", "/resend", "/resend/"], (req, res) => {
           .limit(1);
         
         if (results.length > 0) {
-          sentEmail = results[0].sent_emails;
+          sentEmail = (results[0] as any).sent_emails;
         }
       }
 
@@ -155,11 +155,15 @@ router.all(["/", "/resend", "/resend/"], (req, res) => {
         await db.update(webhookLogsTable)
           .set({ status: "failed", error: errorMsg })
           .where(eq(webhookLogsTable.id, logId))
-          .catch(e => console.error("Could not update final failure status", e));
+          .catch((e: any) => console.error("Could not update final failure status", e));
       }
     }
-  })();
+    })();
+    return response;
   }
+
+  // Handle other methods
+  return res.status(405).json({ error: "Method not allowed" });
 });
 
 export default router;

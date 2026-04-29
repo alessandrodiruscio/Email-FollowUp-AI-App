@@ -16,7 +16,7 @@ export function formatDate(dateString: string | undefined | null) {
       hour: 'numeric',
       minute: '2-digit'
     }).format(date);
-  } catch (e) {
+  } catch (e: any) {
     return dateString;
   }
 }

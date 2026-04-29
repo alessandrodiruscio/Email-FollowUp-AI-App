@@ -20,7 +20,7 @@ app.use(cors({
 // ABSOLUTE PRIORITY HEALTH CHECK
 app.get("/public-health-check", (req, res) => {
   console.log(`[HEALTH] Public check from ${req.headers.host}`);
-  res.status(200).send("OK-SERVER-IS-UP");
+  return res.status(200).send("OK-SERVER-IS-UP");
 });
 
 app.set('strict routing', false);
@@ -38,7 +38,7 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // 1. DIRECT ROUTES (Highest Priority)
 app.all(["/p", "/ping", "/ping-public", "/api/ping-public"], (req, res) => {
   console.log(`[HEALTH-CHECK] Hit! Method: ${req.method} | Path: ${req.path} | Original: ${req.originalUrl} | Host: ${req.headers.host}`);
-  res.json({ 
+  return res.json({ 
     status: "ok", 
     message: "Server is alive and receiving requests",
     time: new Date().toISOString(), 
@@ -95,11 +95,11 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
 // Test health endpoint
 app.get("/health", (req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
+  return res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
 app.get("/api/ping", (req, res) => {
-  res.json({ message: "pong", dbConnected: !!db });
+  return res.json({ message: "pong", dbConnected: !!db });
 });
 
 // Mount routes

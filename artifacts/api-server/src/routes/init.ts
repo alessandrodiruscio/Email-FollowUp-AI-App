@@ -147,7 +147,7 @@ router.post("/init/setup-email-tracking", async (req, res) => {
         )
       `);
       console.log("[init] ✓ webhook_logs table created");
-    } catch (e) {
+    } catch (e: any) {
       console.error("[init] ✗ Failed to create webhook_logs table:", e);
     }
 
