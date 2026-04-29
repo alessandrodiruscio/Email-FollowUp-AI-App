@@ -11,11 +11,34 @@ async function main() {
   // In AI Studio, we need to handle paths carefully between dev and prod
   const isProd = process.env.NODE_ENV === "production";
   
+  // Handling global process errors
+  process.on("unhandledRejection", (reason, promise) => {
+    console.error("[process] Unhandled Rejection at:", promise, "reason:", reason);
+  });
+  process.on("uncaughtException", (err) => {
+    console.error("[process] Uncaught Exception thrown:", err);
+    // On some environments we might want to exit, but let's just log and try to continue for now
+    // unless it's critical. 
+  });
+
   // Try multiple ways to find the project root
   const rootPath = process.cwd();
   
-  // Use the standard location where we copy assets in the root build script
-  const distPath = path.resolve(rootPath, "dist/public");
+  // Try several potential locations for dist/public
+  const potentialDistPaths = [
+    path.resolve(rootPath, "dist/public"),
+    path.resolve(rootPath, "artifacts/api-server/dist/public"),
+    path.resolve(rootPath, "artifacts/email-followup/dist/public"),
+    path.resolve(rootPath, "public"),
+  ];
+  
+  let distPath = potentialDistPaths[0];
+  for (const p of potentialDistPaths) {
+    if (fs.existsSync(p)) {
+      distPath = p;
+      break;
+    }
+  }
   
   // Also keep track of the source path just in case
   const vitePath = path.resolve(rootPath, "artifacts/email-followup");
@@ -87,9 +110,12 @@ async function main() {
       return res.status(404).json({ error: "API endpoint not found" });
     });
 
-    // SPA fallback
-    app.get("(.*)", (req, res) => {
-      // If it looks like a static asset but wasn't served by express.static, return 404
+    // SPA fallback - Use middleware instead of app.get to avoid path-to-regexp issues
+    app.use((req, res, next) => {
+      // Ignore API routes (should be handled above anyway)
+      if (req.path.startsWith("/api")) return next();
+      
+      // If it looks like a static asset (has extension) but wasn't served by express.static, 404
       if (req.path.includes(".") && !req.path.endsWith(".html")) {
         return res.status(404).send("Not found");
       }
@@ -98,6 +124,8 @@ async function main() {
       if (fs.existsSync(indexPath)) {
         return res.sendFile(indexPath);
       } else {
+        // Log this failure as it's a common issue on Vercel/Docker
+        console.error(`[server] SPA fallback: index.html not found at ${indexPath}`);
         return res.status(404).send(`Frontend not found in: ${indexPath}`);
       }
     });

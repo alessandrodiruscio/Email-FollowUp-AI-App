@@ -51,6 +51,7 @@ async function buildAll() {
       "openai", 
       "resend", 
       "zod", 
+      "vite",
     ],
     logLevel: "info",
   });
