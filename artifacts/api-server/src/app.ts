@@ -8,26 +8,58 @@ import initRouter from "./routes/init";
 
 const app: Express = express();
 
+// 0. CORS and BASIC MIDDLEWARE
+// Enable CORS for all origins to ensure cross-app testing works
+app.use(cors({
+  origin: true,
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
+}));
+
+// ABSOLUTE PRIORITY HEALTH CHECK
+app.get("/public-health-check", (req, res) => {
+  console.log(`[HEALTH] Public check from ${req.headers.host}`);
+  res.status(200).send("OK-SERVER-IS-UP");
+});
+
 app.set('strict routing', false);
 
-// GLOBAL LOGGING FOR DEBUGGING WEBHOOKS
+// 0. LOGGING
 app.use((req, res, next) => {
-  if (req.url.includes('resend') || req.method === 'POST') {
-    console.log(`[ENTRY] ${req.method} ${req.url} from ${req.ip}`);
-  }
+  console.log(`[HTTP-IN] ${req.method} ${req.url} (Host: ${req.headers.host})`);
   next();
 });
 
-app.use(cors());
 app.use(cookieParser());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// 1. WEBHOOKS FIRST - Absolute priority to avoid any redirects or auth middleware
-app.use("/public", webhooksRouter);
-app.use("/resend-webhook", webhooksRouter);
+// 1. DIRECT ROUTES (Highest Priority)
+app.all(["/p", "/ping", "/ping-public", "/api/ping-public"], (req, res) => {
+  console.log(`[HEALTH-CHECK] Hit! Method: ${req.method} | Path: ${req.path} | Original: ${req.originalUrl} | Host: ${req.headers.host}`);
+  res.json({ 
+    status: "ok", 
+    message: "Server is alive and receiving requests",
+    time: new Date().toISOString(), 
+    auth: !!req.headers.authorization
+  });
+});
+
+// 2. WEBHOOKS MOUNTING
+// Mounting on multiple paths to handle various proxy/sharing scenarios
+app.use((req, res, next) => {
+  if (req.path.startsWith("/w") || req.path.includes("webhook")) {
+    console.log(`[HTTP-WEBHOOK] Target: ${req.path} | Method: ${req.method} | Content-Type: ${req.headers["content-type"]}`);
+  }
+  next();
+});
+
+app.use("/w", webhooksRouter);
+app.use("/public/webhook", webhooksRouter);
 app.use("/api/webhooks", webhooksRouter);
-app.use("/webhooks", webhooksRouter);
+app.use("/api/public/webhook", webhooksRouter);
+app.use("/webhook-receiver", webhooksRouter);
 
 // Database readiness check for API routes
 app.use("/api", (req: Request, res: Response, next: NextFunction) => {

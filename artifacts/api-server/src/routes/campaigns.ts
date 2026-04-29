@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, campaignsTable, recipientsTable, followUpStepsTable, sentEmailsTable, emailEventsTable, reasonsTable, reasonFollowUpTemplatesTable } from "../../../../lib/db/src/index.js";
-import { eq, count, and, sql } from "drizzle-orm";
+import { eq, count, and, sql, isNotNull } from "drizzle-orm";
 import {
   CreateCampaignBody,
   GetCampaignParams,
@@ -201,15 +201,35 @@ router.get("/campaigns", async (req, res) => {
 router.post("/campaigns", async (req, res) => {
   let data = CreateCampaignBody.parse(req.body);
   
-  // If no footer data is provided, automatically populate from campaign 11 (Alessandro's default footer)
+  // Ensure includeFooter defaults to true if not specified
+  if (data.includeFooter === undefined) {
+    data.includeFooter = true;
+  }
+
+  // If no footer data is provided, automatically populate from the most recent campaign that has a footer
   if (!data.footerName) {
-    const [fallbackCampaign] = await db
+    // Try campaign 11 first as it is the historical default
+    let [fallbackCampaign] = await db
       .select()
       .from(campaignsTable)
       .where(eq(campaignsTable.id, 11));
     
+    if (!fallbackCampaign || !fallbackCampaign.footerName) {
+      // Find the most recent campaign that actually has a footer name
+      const recentWithFooter = await db
+        .select()
+        .from(campaignsTable)
+        .where(and(isNotNull(campaignsTable.footerName), sql`footer_name != ''`))
+        .orderBy(sql`${campaignsTable.updatedAt} DESC`)
+        .limit(1);
+      
+      if (recentWithFooter.length > 0 && recentWithFooter[0].footerName) {
+        fallbackCampaign = recentWithFooter[0];
+      }
+    }
+
     if (fallbackCampaign && fallbackCampaign.footerName) {
-      console.log("[create-campaign] No footer provided, using fallback from campaign 11");
+      console.log(`[create-campaign] No footer provided, using fallback from campaign ${fallbackCampaign.id}`);
       data = {
         ...data,
         footerName: fallbackCampaign.footerName,
@@ -259,6 +279,18 @@ router.get("/campaigns/:id", async (req, res) => {
     .where(eq(followUpStepsTable.campaignId, id))
     .orderBy(followUpStepsTable.stepNumber);
 
+  const allEvents = await db
+    .select({
+      id: emailEventsTable.id,
+      sentEmailId: emailEventsTable.sentEmailId,
+      eventType: emailEventsTable.eventType,
+      timestamp: emailEventsTable.timestamp
+    })
+    .from(emailEventsTable)
+    .innerJoin(sentEmailsTable, eq(emailEventsTable.sentEmailId, sentEmailsTable.id))
+    .innerJoin(recipientsTable, eq(sentEmailsTable.recipientId, recipientsTable.id))
+    .where(eq(recipientsTable.campaignId, id));
+
   const recipientsWithActivity = await Promise.all(
     recipients.map(async (r: any) => {
       const sentEmails = await db
@@ -266,7 +298,19 @@ router.get("/campaigns/:id", async (req, res) => {
         .from(sentEmailsTable)
         .where(eq(sentEmailsTable.recipientId, r.id))
         .orderBy(sentEmailsTable.sentAt);
-      return { ...r, sentEmails };
+      
+      const enrichedSentEmails = sentEmails.map((se: any) => {
+        const emailEvents = allEvents.filter((e: any) => e.sentEmailId === se.id);
+        return {
+          ...se,
+          opened: emailEvents.some((e: any) => e.eventType === "opened"),
+          clicked: emailEvents.some((e: any) => e.eventType === "clicked"),
+          openedAt: emailEvents.find((e: any) => e.eventType === "opened")?.timestamp,
+          clickedAt: emailEvents.find((e: any) => e.eventType === "clicked")?.timestamp,
+        };
+      });
+
+      return { ...r, sentEmails: enrichedSentEmails };
     })
   );
 
@@ -373,7 +417,7 @@ router.post("/campaigns/:id/send", async (req, res) => {
   let emailBody = campaign.body;
   let htmlBody = campaign.body.replace(/\n/g, "<br/>");
   
-  if (campaign.footerName) {
+  if (campaign.footerName && (campaign as any).includeFooter !== false) {
     // Plain text footer
     const footerLines: string[] = [];
     footerLines.push(""); // blank line before footer
@@ -570,10 +614,26 @@ router.post("/campaigns/:id/test-email", async (req, res) => {
     return;
   }
 
-  // If campaign has no footer data, try to use footer from campaign 11 (in case it's a duplicate)
+  // If campaign has no footer data, try to use footer from campaign 11 or the most recent campaign with a footer
   if (!campaign.footerName) {
-    const [fallbackCampaign] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, 11));
+    let [fallbackCampaign] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, 11));
+    
+    if (!fallbackCampaign || !fallbackCampaign.footerName) {
+      // Find the most recent campaign that actually has a footer name
+      const recentWithFooter = await db
+        .select()
+        .from(campaignsTable)
+        .where(isNotNull(campaignsTable.footerName))
+        .orderBy(sql`${campaignsTable.updatedAt} DESC`)
+        .limit(1);
+      
+      if (recentWithFooter.length > 0 && recentWithFooter[0].footerName) {
+        fallbackCampaign = recentWithFooter[0];
+      }
+    }
+
     if (fallbackCampaign && fallbackCampaign.footerName) {
+      console.log(`[test-email] Campaign ${id} had no footer, using campaign ${fallbackCampaign.id} footer`);
       campaign = { ...campaign, 
         footerName: fallbackCampaign.footerName,
         footerTitle: fallbackCampaign.footerTitle,
@@ -584,14 +644,13 @@ router.post("/campaigns/:id/test-email", async (req, res) => {
         footerInstagram: fallbackCampaign.footerInstagram,
         footerYoutube: fallbackCampaign.footerYoutube,
       };
-      console.log(`[test-email] Campaign ${id} had no footer, using campaign 11 footer`);
     }
   }
 
   // Determine if we're testing a follow-up step or the initial email
   let emailSubject = campaign.subject;
   let emailBody = campaign.body;
-  let includeFooter = true; // Default to true for initial email (campaigns don't have includeFooter column)
+  let includeFooter = (campaign as any).includeFooter !== false; // Respect DB value
   const originalSubject = campaign.subject;
 
   if (stepNumber !== undefined && stepNumber > 0) {
@@ -608,16 +667,20 @@ router.post("/campaigns/:id/test-email", async (req, res) => {
     
     emailSubject = step.subject;
     emailBody = step.body;
-    includeFooter = step.includeFooter ?? true; // Follow-up steps default to true if not specified
+    includeFooter = step.includeFooter ?? true; 
   }
 
-  let htmlBody = emailBody;
+  // Initialize htmlBody with newline conversion if it doesn't already look like HTML
+  let htmlBody = emailBody.includes("<") && emailBody.includes(">") 
+    ? emailBody 
+    : emailBody.replace(/\n/g, "<br/>");
   
   console.log(`[test-email] Campaign ${id} - footerName: "${campaign.footerName}", includeFooter: ${includeFooter}, stepNumber: ${stepNumber}`);
   
-  // Add footer only if campaign has footer data AND the step allows it (for follow-ups, respect the includeFooter flag)
+  // Add footer only if campaign has footer data AND the step allows it
   if (campaign.footerName && includeFooter) {
-    console.log(`[test-email] Adding footer for campaign ${id}`);
+    console.log(`[test-email] Appending footer for campaign ${id}`);
+    
     // Plain text footer
     const footerLines: string[] = [];
     footerLines.push("");
@@ -627,25 +690,27 @@ router.post("/campaigns/:id/test-email", async (req, res) => {
     if (campaign.footerWebsite) footerLines.push(campaign.footerWebsite);
     if (campaign.footerWebsiteUrl) footerLines.push(`Visit: ${campaign.footerWebsiteUrl}`);
     
-    const socialLinks: string[] = [];
-    if (campaign.footerFacebook) socialLinks.push(`Facebook: https://facebook.com/${campaign.footerFacebook}`);
-    if (campaign.footerInstagram) socialLinks.push(`Instagram: https://instagram.com/${campaign.footerInstagram}`);
-    if (campaign.footerYoutube) socialLinks.push(`YouTube: https://youtube.com/${campaign.footerYoutube}`);
-    if (socialLinks.length > 0) footerLines.push(...socialLinks);
+    const socialLinksText: string[] = [];
+    if (campaign.footerFacebook) socialLinksText.push(`Facebook: https://facebook.com/${campaign.footerFacebook}`);
+    if (campaign.footerInstagram) socialLinksText.push(`Instagram: https://instagram.com/${campaign.footerInstagram}`);
+    if (campaign.footerYoutube) socialLinksText.push(`YouTube: https://youtube.com/${campaign.footerYoutube}`);
+    if (socialLinksText.length > 0) footerLines.push(...socialLinksText);
     
     emailBody = emailBody + "\n\n" + footerLines.join("\n");
     
-    // HTML footer
+    // HTML footer (Matching exactly the high-compatibility version in the main send route)
     let htmlFooter = '<div style="border-top: 1px solid #ccc; margin-top: 24px; padding-top: 24px; max-width: 100%; overflow: hidden;">';
     htmlFooter += '<table cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">';
     htmlFooter += '<tr>';
     
+    // Left column: image
     if (campaign.footerImageUrl) {
       htmlFooter += '<td style="padding-right: 16px; vertical-align: top; width: 80px; flex-shrink: 0;">';
       htmlFooter += `<img src="${campaign.footerImageUrl}" alt="${campaign.footerName}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; display: block;" />`;
       htmlFooter += '</td>';
     }
     
+    // Right column: text and social icons (Using inline-block which is safer than inline-flex)
     htmlFooter += '<td style="padding: 0; vertical-align: top;">';
     htmlFooter += `<p style="margin: 0; font-weight: bold; font-size: 16px; color: #000;">${campaign.footerName}</p>`;
     if (campaign.footerTitle) {
@@ -658,18 +723,22 @@ router.post("/campaigns/:id/test-email", async (req, res) => {
     if (campaign.footerFacebook || campaign.footerInstagram || campaign.footerYoutube) {
       htmlFooter += '<div style="margin-top: 12px;">';
       if (campaign.footerFacebook) {
-        htmlFooter += `<a href="https://facebook.com/${campaign.footerFacebook}" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; background-color: #6366F1; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 16px; color: white; margin-right: 4px;">f</a>`;
+        htmlFooter += `<a href="https://facebook.com/${campaign.footerFacebook}" style="display: inline-block; text-decoration: none; margin-right: 8px;"><img src="https://cdn-icons-png.flaticon.com/32/733/733547.png" width="32" height="32" style="display: block; border: 0;" /></a>`;
       }
       if (campaign.footerInstagram) {
-        htmlFooter += `<a href="https://instagram.com/${campaign.footerInstagram}" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; background-color: #6366F1; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 16px; color: white; margin-right: 4px;">@</a>`;
+        htmlFooter += `<a href="https://instagram.com/${campaign.footerInstagram}" style="display: inline-block; text-decoration: none; margin-right: 8px;"><img src="https://cdn-icons-png.flaticon.com/32/174/174855.png" width="32" height="32" style="display: block; border: 0;" /></a>`;
       }
       if (campaign.footerYoutube) {
-        htmlFooter += `<a href="https://youtube.com/${campaign.footerYoutube}" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; background-color: #6366F1; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 16px; color: white; margin-right: 4px;">▶</a>`;
+        htmlFooter += `<a href="https://youtube.com/${campaign.footerYoutube}" style="display: inline-block; text-decoration: none; margin-right: 8px;"><img src="https://cdn-icons-png.flaticon.com/32/1384/1384060.png" width="32" height="32" style="display: block; border: 0;" /></a>`;
       }
       htmlFooter += '</div>';
     }
     
-    htmlFooter += '</td></tr></table></div>';
+    htmlFooter += '</td>';
+    htmlFooter += '</tr>';
+    htmlFooter += '</table>';
+    htmlFooter += '</div>';
+    
     htmlBody = htmlBody + htmlFooter;
   }
 

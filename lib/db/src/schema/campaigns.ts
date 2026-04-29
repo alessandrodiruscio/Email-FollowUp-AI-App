@@ -15,6 +15,7 @@ export const campaignsTable = mysqlTable("campaigns", {
   emailFontSize: text("email_font_size").default("16"),
   emailFontFamily: text("email_font_family").default("sans-serif"),
   emailLineHeight: text("email_line_height").default("1.6"),
+  includeFooter: boolean("include_footer").notNull().default(true),
   footerName: text("footer_name"),
   footerTitle: text("footer_title"),
   footerImageUrl: text("footer_image_url"),

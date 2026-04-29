@@ -97,13 +97,13 @@ async function processFollowUps() {
             if (campaign.footerFacebook || campaign.footerInstagram || campaign.footerYoutube) {
               htmlFooter += '<div style="margin-top: 12px;">';
               if (campaign.footerFacebook) {
-                htmlFooter += `<a href="https://facebook.com/${campaign.footerFacebook}" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; background-color: #6366F1; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 16px; color: white; margin-right: 4px;">f</a>`;
+                htmlFooter += `<a href="https://facebook.com/${campaign.footerFacebook}" style="display: inline-block; text-decoration: none; margin-right: 8px;"><img src="https://cdn-icons-png.flaticon.com/32/733/733547.png" width="32" height="32" style="display: block; border: 0;" /></a>`;
               }
               if (campaign.footerInstagram) {
-                htmlFooter += `<a href="https://instagram.com/${campaign.footerInstagram}" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; background-color: #6366F1; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 16px; color: white; margin-right: 4px;">@</a>`;
+                htmlFooter += `<a href="https://instagram.com/${campaign.footerInstagram}" style="display: inline-block; text-decoration: none; margin-right: 8px;"><img src="https://cdn-icons-png.flaticon.com/32/174/174855.png" width="32" height="32" style="display: block; border: 0;" /></a>`;
               }
               if (campaign.footerYoutube) {
-                htmlFooter += `<a href="https://youtube.com/${campaign.footerYoutube}" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; background-color: #6366F1; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 16px; color: white; margin-right: 4px;">▶</a>`;
+                htmlFooter += `<a href="https://youtube.com/${campaign.footerYoutube}" style="display: inline-block; text-decoration: none; margin-right: 8px;"><img src="https://cdn-icons-png.flaticon.com/32/1384/1384060.png" width="32" height="32" style="display: block; border: 0;" /></a>`;
               }
               htmlFooter += '</div>';
             }

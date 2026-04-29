@@ -1,22 +1,28 @@
 import { Router } from "express";
-import { db, sentEmailsTable, emailEventsTable, recipientsTable, webhookLogsTable } from "../../../../lib/db/src/index.js";
+import { db, sentEmailsTable, emailEventsTable, recipientsTable, webhookLogsTable } from "../../../../lib/db/src/index";
 import { eq, desc, and, sql } from "drizzle-orm";
 
 const router = Router();
 
-// Universal handler to debug any Resend activity
+// Test endpoint for Resend to verify path directly
+router.post("/test", (req, res) => {
+  console.log("[webhook-test] POST received");
+  res.status(200).json({ status: "ok", received: true });
+});
+
+// Universal handler for webhooks
 router.all(["/", "/resend", "/resend/"], (req, res) => {
-  const timestamp = new Date();
-  console.log(`[webhook] Incoming ${req.method} to ${req.originalUrl} from ${req.ip}`);
+  const fullPath = req.baseUrl + req.url;
+  console.log(`[webhook-router] Incoming! Method: ${req.method} | Path: ${fullPath} | Host: ${req.headers.host}`);
   
-  // If it's GET/HEAD, just confirm active status
+  // Respond immediately if it's GET/HEAD for manual verification
   if (req.method === "GET" || req.method === "HEAD") {
     return res.status(200).json({
       status: "active",
-      message: "Resend Webhook Endpoint is online",
+      message: "Webhook router is active and matched your request",
       path: req.originalUrl,
       method: req.method,
-      ready: true
+      timestamp: new Date().toISOString()
     });
   }
 

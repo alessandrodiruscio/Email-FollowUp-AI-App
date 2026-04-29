@@ -3,9 +3,11 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "wouter";
+import { useGlobalAutoSync } from "@/hooks/useAutoSync";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
+  useGlobalAutoSync();
   
   return (
     <SidebarProvider style={{ "--sidebar-width": "16rem" } as React.CSSProperties}>

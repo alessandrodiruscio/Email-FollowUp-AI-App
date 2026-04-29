@@ -10,29 +10,8 @@ const __dirname = path.dirname(__filename);
 // which helps cold start times without risking some
 // packages that are not bundle compatible
 const allowlist = [
-  "@google/generative-ai",
-  "axios",
-  "connect-pg-simple",
-  "cors",
-  "date-fns",
-  "drizzle-orm",
-  "drizzle-zod",
-  "express",
-  "express-rate-limit",
-  "express-session",
-  "jsonwebtoken",
-  "memorystore",
-  "multer",
   "nanoid",
-  "nodemailer",
-  "openai",
-  "passport",
-  "passport-local",
-  "pg",
-  "stripe",
   "uuid",
-  "ws",
-  "xlsx",
   "zod",
   "zod-validation-error",
 ];
@@ -44,19 +23,10 @@ async function buildAll() {
   console.log("building server...");
   const pkgPath = path.resolve(__dirname, "package.json");
   const pkg = JSON.parse(await readFile(pkgPath, "utf-8"));
-  const allDeps = [
-    ...Object.keys(pkg.dependencies || {}),
-    ...Object.keys(pkg.devDependencies || {}),
-  ];
-  const externals = allDeps.filter(
-    (dep) =>
-      !allowlist.includes(dep) &&
-      !dep.startsWith("@workspace/"),
-  );
-
-  console.log("Externals:", externals);
-  console.log("Bundling workspace packages...");
-
+  
+  // We want to keep all node_modules as external to avoid bundle compatibility issues
+  // while still bundling our internal workspace packages.
+  
   await esbuild({
     entryPoints: [path.resolve(__dirname, "src/index.ts")],
     platform: "node",
@@ -67,7 +37,21 @@ async function buildAll() {
       "process.env.NODE_ENV": '"production"',
     },
     minify: true,
-    external: externals,
+    external: [
+      "@google/generative-ai", 
+      "cookie-parser", 
+      "cors", 
+      "dotenv", 
+      "drizzle-orm", 
+      "drizzle-orm/*",
+      "drizzle-zod", 
+      "express", 
+      "mysql2", 
+      "mysql2/*",
+      "openai", 
+      "resend", 
+      "zod", 
+    ],
     logLevel: "info",
   });
 }

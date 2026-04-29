@@ -26,10 +26,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { RichTextEditor } from "@/components/ui/RichTextEditor";
-import { ArrowLeft, Send, Mail, Users, Clock, CheckCircle2, Trash2, StopCircle, RefreshCw, Pencil, Loader2, Plus, Zap } from "lucide-react";
+import { ArrowLeft, Send, Mail, Users, Clock, CheckCircle2, Trash2, StopCircle, RefreshCw, Pencil, Loader2, Plus, Zap, ChevronDown, ChevronUp, MailOpen, MousePointerClick } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { getStatusColor, formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -45,6 +46,15 @@ const editCampaignSchema = z.object({
   body: z.string().min(1, "Email body is required"),
   fromName: z.string().min(1, "Sender name is required"),
   fromEmail: z.string().email("Valid email required"),
+  includeFooter: z.boolean().default(true),
+  footerName: z.string().optional(),
+  footerTitle: z.string().optional(),
+  footerImageUrl: z.string().optional(),
+  footerWebsite: z.string().optional(),
+  footerWebsiteUrl: z.string().optional(),
+  footerFacebook: z.string().optional(),
+  footerInstagram: z.string().optional(),
+  footerYoutube: z.string().optional(),
 });
 
 type FollowUpStep = {
@@ -63,6 +73,10 @@ type SentEmail = {
   status: string;
   sentAt: Date | string;
   subject: string;
+  opened?: boolean;
+  clicked?: boolean;
+  openedAt?: Date | string;
+  clickedAt?: Date | string;
 };
 
 type Recipient = {
@@ -75,20 +89,90 @@ type Recipient = {
   sentEmails: SentEmail[];
 };
 
+function TimelineLegend() {
+  return (
+    <div className="flex flex-wrap items-center gap-x-6 gap-y-3 mb-6 p-5 rounded-2xl bg-muted/30 border border-border/50 text-xs font-semibold">
+      <div className="flex items-center gap-2">
+        <div className="w-4 h-4 rounded-full bg-blue-500 ring-2 ring-blue-100" />
+        <span className="text-foreground/80">Initial Sent</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="w-4 h-4 rounded-full bg-amber-500 ring-2 ring-amber-100" />
+        <span className="text-foreground/80">Follow-up Sent</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="w-4 h-4 rounded-full flex items-center justify-center bg-purple-500 ring-2 ring-purple-100">
+          <MailOpen className="w-2.5 h-2.5 text-white" />
+        </div>
+        <span className="text-foreground/80">Opened</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="w-4 h-4 rounded-full flex items-center justify-center bg-pink-500 ring-2 ring-pink-100">
+          <MousePointerClick className="w-2.5 h-2.5 text-white" />
+        </div>
+        <span className="text-foreground/80">Clicked</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="w-4 h-4 rounded-full bg-emerald-500 ring-2 ring-emerald-100 flex items-center justify-center">
+          <CheckCircle2 className="w-2.5 h-2.5 text-white" />
+        </div>
+        <span className="text-foreground/80">Replied</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="w-4 h-4 rounded-full bg-slate-100 border border-slate-300" />
+        <span className="text-muted-foreground font-normal">Upcoming</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="w-4 h-4 rounded-full bg-slate-300 border-2 border-dashed border-slate-400 opacity-60" />
+        <span className="text-muted-foreground font-normal">Cancelled</span>
+      </div>
+    </div>
+  );
+}
+
 function RecipientTimeline({ recipient, followUpSteps }: { recipient: Recipient; followUpSteps: FollowUpStep[] }) {
   const sentStepIds = new Set(recipient.sentEmails.filter(e => e.followUpStepId).map(e => e.followUpStepId));
+  const initialSent = recipient.sentEmails.find(e => e.stepNumber === 0);
   
   return (
-    <TooltipProvider>
-      <div className="flex items-center gap-1.5 flex-wrap">
+    <TooltipProvider delayDuration={100}>
+      <div className="flex items-center gap-2.5 flex-wrap">
         {recipient.initialSentAt ? (
           <Tooltip>
-            <TooltipTrigger>
-              <div className="w-3 h-3 rounded-full bg-blue-500 ring-2 ring-blue-200" />
+            <TooltipTrigger asChild>
+              <div className={`w-5 h-5 rounded-full flex items-center justify-center ring-2 shadow-sm transition-all cursor-default ${
+                initialSent?.clicked ? 'bg-pink-500 ring-pink-100' : 
+                initialSent?.opened ? 'bg-purple-500 ring-purple-100' : 
+                'bg-blue-500 ring-blue-100'
+              }`}>
+                {initialSent?.clicked ? <MousePointerClick className="w-3 h-3 text-white" /> : 
+                 initialSent?.opened ? <MailOpen className="w-3 h-3 text-white" /> : null}
+              </div>
             </TooltipTrigger>
-            <TooltipContent>
-              <p className="font-medium">Initial email sent</p>
-              <p className="text-xs text-muted-foreground">{formatDate(String(recipient.initialSentAt))}</p>
+            <TooltipContent className="p-0 border-none shadow-xl">
+              <div className="bg-card rounded-lg overflow-hidden border">
+                <div className="bg-blue-500 px-3 py-2 text-white text-xs font-bold flex items-center gap-2">
+                   <Mail className="w-3.5 h-3.5" /> Initial Email
+                </div>
+                <div className="p-3 space-y-2 min-w-[180px]">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-muted-foreground uppercase tracking-tight font-semibold">Sent</span>
+                    <span className="font-medium">{formatDate(String(recipient.initialSentAt))}</span>
+                  </div>
+                  {initialSent?.opened && (
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-purple-600 uppercase tracking-tight font-bold">Opened</span>
+                      <span className="font-medium text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded">{formatDate(String(initialSent.openedAt))}</span>
+                    </div>
+                  )}
+                  {initialSent?.clicked && (
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-pink-600 uppercase tracking-tight font-bold">Clicked</span>
+                      <span className="font-medium text-pink-700 bg-pink-50 px-1.5 py-0.5 rounded">{formatDate(String(initialSent.clickedAt))}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
             </TooltipContent>
           </Tooltip>
         ) : null}
@@ -103,12 +187,14 @@ function RecipientTimeline({ recipient, followUpSteps }: { recipient: Recipient;
           if (notStarted) {
             return (
               <Tooltip key={step.id}>
-                <TooltipTrigger>
-                  <div className="w-3 h-3 rounded-full bg-slate-200 border border-slate-300" />
+                <TooltipTrigger asChild>
+                  <div className="w-5 h-5 rounded-full bg-slate-100 border border-slate-300 flex items-center justify-center text-[10px] text-slate-400 font-bold cursor-default">
+                    {step.stepNumber}
+                  </div>
                 </TooltipTrigger>
-                <TooltipContent>
-                  <p className="font-medium">Follow-up {step.stepNumber} — not started</p>
-                  <p className="text-xs text-muted-foreground">Campaign hasn't been sent yet</p>
+                <TooltipContent className="p-3">
+                  <p className="font-bold text-xs border-b pb-1 mb-1">Follow-up {step.stepNumber}</p>
+                  <p className="text-[10px] text-muted-foreground italic">Campaign hasn't started yet</p>
                 </TooltipContent>
               </Tooltip>
             );
@@ -116,14 +202,41 @@ function RecipientTimeline({ recipient, followUpSteps }: { recipient: Recipient;
           if (wasSent) {
             return (
               <Tooltip key={step.id}>
-                <TooltipTrigger>
-                  <div className="w-3 h-3 rounded-full bg-amber-500 ring-2 ring-amber-200" />
+                <TooltipTrigger asChild>
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center ring-2 shadow-sm transition-all cursor-default ${
+                    sentEmail?.clicked ? 'bg-pink-500 ring-pink-100' : 
+                    sentEmail?.opened ? 'bg-purple-500 ring-purple-100' : 
+                    'bg-amber-500 ring-amber-100'
+                  }`}>
+                    {sentEmail?.clicked ? <MousePointerClick className="w-3 h-3 text-white" /> : 
+                     sentEmail?.opened ? <MailOpen className="w-3 h-3 text-white" /> : 
+                     <span className="text-white text-[10px] font-bold">{step.stepNumber}</span>}
+                  </div>
                 </TooltipTrigger>
-                <TooltipContent>
-                  <p className="font-medium">Follow-up {step.stepNumber} sent</p>
-                  {sentEmail?.sentAt && (
-                    <p className="text-xs text-muted-foreground">{formatDate(String(sentEmail.sentAt))}</p>
-                  )}
+                <TooltipContent className="p-0 border-none shadow-xl">
+                  <div className="bg-card rounded-lg overflow-hidden border">
+                    <div className="bg-amber-500 px-3 py-2 text-white text-xs font-bold flex items-center gap-2">
+                       <Clock className="w-3.5 h-3.5" /> Follow-up {step.stepNumber}
+                    </div>
+                    <div className="p-3 space-y-2 min-w-[180px]">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-muted-foreground uppercase tracking-tight font-semibold">Sent</span>
+                        <span className="font-medium">{sentEmail?.sentAt ? formatDate(String(sentEmail.sentAt)) : 'N/A'}</span>
+                      </div>
+                      {sentEmail?.opened && (
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-purple-600 uppercase tracking-tight font-bold">Opened</span>
+                          <span className="font-medium text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded">{formatDate(String(sentEmail.openedAt))}</span>
+                        </div>
+                      )}
+                      {sentEmail?.clicked && (
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-pink-600 uppercase tracking-tight font-bold">Clicked</span>
+                          <span className="font-medium text-pink-700 bg-pink-50 px-1.5 py-0.5 rounded">{formatDate(String(sentEmail.clickedAt))}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </TooltipContent>
               </Tooltip>
             );
@@ -131,12 +244,14 @@ function RecipientTimeline({ recipient, followUpSteps }: { recipient: Recipient;
           if (isCancelled) {
             return (
               <Tooltip key={step.id}>
-                <TooltipTrigger>
-                  <div className="w-3 h-3 rounded-full bg-slate-300 border-2 border-dashed border-slate-400 opacity-60" />
+                <TooltipTrigger asChild>
+                  <div className="w-5 h-5 rounded-full bg-slate-300 border-2 border-dashed border-slate-400 opacity-60 flex items-center justify-center text-[10px] text-slate-500 font-bold cursor-default">
+                    {step.stepNumber}
+                  </div>
                 </TooltipTrigger>
-                <TooltipContent>
-                  <p className="font-medium">Follow-up {step.stepNumber} cancelled</p>
-                  <p className="text-xs text-muted-foreground">Recipient replied — no further follow-ups</p>
+                <TooltipContent className="p-3 max-w-[150px]">
+                  <p className="font-bold text-xs border-b pb-1 mb-1 text-slate-500">Follow-up {step.stepNumber}</p>
+                  <p className="text-[10px] text-muted-foreground italic">Cancelled: Recipient already replied</p>
                 </TooltipContent>
               </Tooltip>
             );
@@ -144,12 +259,15 @@ function RecipientTimeline({ recipient, followUpSteps }: { recipient: Recipient;
           if (isPending) {
             return (
               <Tooltip key={step.id}>
-                <TooltipTrigger>
-                  <div className="w-3 h-3 rounded-full bg-slate-300 border-2 border-slate-400 animate-pulse" />
+                <TooltipTrigger asChild>
+                  <div className="w-5 h-5 rounded-full bg-slate-200 border-2 border-slate-300 animate-pulse flex items-center justify-center text-[10px] text-slate-500 font-bold cursor-default">
+                    {step.stepNumber}
+                  </div>
                 </TooltipTrigger>
-                <TooltipContent>
-                  <p className="font-medium">Follow-up {step.stepNumber} pending</p>
-                  <p className="text-xs text-muted-foreground">Scheduled {step.delayValue} {step.delayUnit} after the prior step</p>
+                <TooltipContent className="p-3">
+                  <p className="font-bold text-xs border-b pb-1 mb-1">Follow-up {step.stepNumber}</p>
+                  <p className="text-[10px] font-medium text-amber-600">Pending</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">Scheduled {step.delayValue} {step.delayUnit} after previous</p>
                 </TooltipContent>
               </Tooltip>
             );
@@ -159,14 +277,23 @@ function RecipientTimeline({ recipient, followUpSteps }: { recipient: Recipient;
 
         {recipient.replied && (
           <Tooltip>
-            <TooltipTrigger>
-              <div className="w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-emerald-200" />
+            <TooltipTrigger asChild>
+              <div className="w-5 h-5 rounded-full bg-emerald-500 ring-2 ring-emerald-100 flex items-center justify-center shadow-sm cursor-default">
+                <CheckCircle2 className="w-3 h-3 text-white" />
+              </div>
             </TooltipTrigger>
-            <TooltipContent>
-              <p className="font-medium">Replied</p>
-              {recipient.repliedAt && (
-                <p className="text-xs text-muted-foreground">{formatDate(String(recipient.repliedAt))}</p>
-              )}
+            <TooltipContent className="p-0 border-none shadow-xl">
+              <div className="bg-card rounded-lg overflow-hidden border">
+                <div className="bg-emerald-500 px-3 py-2 text-white text-xs font-bold flex items-center gap-2">
+                   <CheckCircle2 className="w-3.5 h-3.5" /> Replied
+                </div>
+                <div className="p-3 min-w-[180px]">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-muted-foreground uppercase tracking-tight font-semibold font-semibold">Received</span>
+                    <span className="font-bold text-emerald-700">{recipient.repliedAt ? formatDate(String(recipient.repliedAt)) : 'N/A'}</span>
+                  </div>
+                </div>
+              </div>
             </TooltipContent>
           </Tooltip>
         )}
@@ -175,7 +302,7 @@ function RecipientTimeline({ recipient, followUpSteps }: { recipient: Recipient;
   );
 }
 
-function EditCampaignDialog({ campaign, campaignId, isOpen, onOpenChange }: { campaign: { name: string; subject: string; body: string; fromName: string; fromEmail: string }; campaignId: number; isOpen?: boolean; onOpenChange?: (open: boolean) => void }) {
+function EditCampaignDialog({ campaign, campaignId, isOpen, onOpenChange }: { campaign: any; campaignId: number; isOpen?: boolean; onOpenChange?: (open: boolean) => void }) {
   const [internalOpen, setInternalOpen] = useState(false);
   const open = isOpen !== undefined ? isOpen : internalOpen;
   const setOpen = (val: boolean) => {
@@ -183,6 +310,7 @@ function EditCampaignDialog({ campaign, campaignId, isOpen, onOpenChange }: { ca
     else setInternalOpen(val);
   };
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showFooterSettings, setShowFooterSettings] = useState(false);
   const updateMutation = useUpdateCampaign();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -195,13 +323,37 @@ function EditCampaignDialog({ campaign, campaignId, isOpen, onOpenChange }: { ca
       body: campaign.body,
       fromName: campaign.fromName,
       fromEmail: campaign.fromEmail,
+      includeFooter: campaign.includeFooter ?? true,
+      footerName: campaign.footerName || "",
+      footerTitle: campaign.footerTitle || "",
+      footerImageUrl: campaign.footerImageUrl || "",
+      footerWebsite: campaign.footerWebsite || "",
+      footerWebsiteUrl: campaign.footerWebsiteUrl || "",
+      footerFacebook: campaign.footerFacebook || "",
+      footerInstagram: campaign.footerInstagram || "",
+      footerYoutube: campaign.footerYoutube || "",
     }
   });
 
   const handleOpenChange = (val: boolean) => {
     setOpen(val);
     if (val) {
-      form.reset({ name: campaign.name, subject: campaign.subject, body: campaign.body, fromName: campaign.fromName, fromEmail: campaign.fromEmail });
+      form.reset({
+        name: campaign.name,
+        subject: campaign.subject,
+        body: campaign.body,
+        fromName: campaign.fromName,
+        fromEmail: campaign.fromEmail,
+        includeFooter: campaign.includeFooter ?? true,
+        footerName: campaign.footerName || "",
+        footerTitle: campaign.footerTitle || "",
+        footerImageUrl: campaign.footerImageUrl || "",
+        footerWebsite: campaign.footerWebsite || "",
+        footerWebsiteUrl: campaign.footerWebsiteUrl || "",
+        footerFacebook: campaign.footerFacebook || "",
+        footerInstagram: campaign.footerInstagram || "",
+        footerYoutube: campaign.footerYoutube || "",
+      });
     }
   };
 
@@ -311,6 +463,137 @@ function EditCampaignDialog({ campaign, campaignId, isOpen, onOpenChange }: { ca
                   </FormItem>
                 )}
               />
+
+              <div className="border-t pt-4 space-y-4">
+                <FormField
+                  control={form.control}
+                  name="includeFooter"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-lg border p-4 bg-muted/30">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="font-semibold text-sm cursor-pointer">
+                          Include email footer
+                        </FormLabel>
+                        <p className="text-xs text-muted-foreground">
+                          Add contact info and social links to this campaign
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                {form.watch("includeFooter") && (
+                  <div className="space-y-4">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowFooterSettings(!showFooterSettings)}
+                      className="text-xs gap-2"
+                    >
+                      {showFooterSettings ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                      {showFooterSettings ? "Hide" : "Edit"} Footer Details
+                    </Button>
+
+                    {showFooterSettings && (
+                      <div className="space-y-4 p-4 border rounded-xl bg-muted/10">
+                        <div className="grid grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="footerName"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-xs">Name</FormLabel>
+                                <FormControl><Input className="h-9 text-sm rounded-lg" {...field} /></FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="footerTitle"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-xs">Title</FormLabel>
+                                <FormControl><Input className="h-9 text-sm rounded-lg" {...field} /></FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <FormField
+                          control={form.control}
+                          name="footerImageUrl"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs">Profile Image URL</FormLabel>
+                              <FormControl><Input className="h-9 text-sm rounded-lg" {...field} /></FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        <div className="grid grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="footerWebsite"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-xs">Website Label</FormLabel>
+                                <FormControl><Input className="h-9 text-sm rounded-lg" {...field} /></FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="footerWebsiteUrl"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-xs">Website URL</FormLabel>
+                                <FormControl><Input className="h-9 text-sm rounded-lg" {...field} /></FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <FormField
+                            control={form.control}
+                            name="footerFacebook"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-[10px]">Facebook User</FormLabel>
+                                <FormControl><Input className="h-8 text-xs rounded-lg" placeholder="username" {...field} /></FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="footerInstagram"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-[10px]">Instagram User</FormLabel>
+                                <FormControl><Input className="h-8 text-xs rounded-lg" placeholder="username" {...field} /></FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="footerYoutube"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-[10px]">YouTube User</FormLabel>
+                                <FormControl><Input className="h-8 text-xs rounded-lg" placeholder="username" {...field} /></FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
             <DialogFooter className="flex-shrink-0 border-t pt-4 mt-4 px-4">
               <Button type="button" variant="ghost" onClick={() => setOpen(false)} className="rounded-xl font-medium">Cancel</Button>
@@ -613,6 +896,8 @@ export default function CampaignDetail() {
               <AddRecipientDialog campaignId={campaign.id} />
             </div>
 
+            {campaign.recipients.length > 0 && <TimelineLegend />}
+
             {campaign.recipients.length === 0 ? (
               <div className="text-center py-16 bg-card rounded-2xl border border-dashed">
                 <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
@@ -630,9 +915,6 @@ export default function CampaignDetail() {
                         <th className="px-6 py-4 font-semibold tracking-wider">Status</th>
                         <th className="px-6 py-4 font-semibold tracking-wider">
                           Timeline
-                          <span className="ml-2 text-xs font-normal normal-case text-muted-foreground/70">
-                            ● sent &nbsp; ◌ pending &nbsp; ○ cancelled
-                          </span>
                         </th>
                         <th className="px-6 py-4 text-right font-semibold tracking-wider">Actions</th>
                       </tr>
@@ -857,6 +1139,18 @@ export default function CampaignDetail() {
                         className="prose prose-sm dark:prose-invert max-w-none text-foreground/90 font-sans"
                         dangerouslySetInnerHTML={{ __html: campaign.body.replace(/\n/g, "<br/>") }}
                       />
+                      {(campaign.includeFooter !== false && campaign.footerName) && (
+                        <div className="mt-6 pt-6 border-t border-dashed grayscale opacity-50">
+                          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4">Email Footer Included</p>
+                          <div className="flex gap-3 items-start">
+                            {campaign.footerImageUrl && <img src={campaign.footerImageUrl} className="w-10 h-10 rounded-full object-cover" />}
+                            <div>
+                                <p className="font-bold text-sm">{campaign.footerName}</p>
+                                {campaign.footerTitle && <p className="text-[10px]">{campaign.footerTitle}</p>}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </div>
@@ -942,6 +1236,18 @@ export default function CampaignDetail() {
                             className="prose prose-sm dark:prose-invert max-w-none text-foreground/90 font-sans"
                             dangerouslySetInnerHTML={{ __html: step.body.replace(/\n/g, "<br/>") }}
                           />
+                          {(step.includeFooter !== false && campaign.footerName) && (
+                            <div className="mt-6 pt-6 border-t border-dashed grayscale opacity-50">
+                              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4">Email Footer Included</p>
+                              <div className="flex gap-3 items-start">
+                                {campaign.footerImageUrl && <img src={campaign.footerImageUrl} className="w-10 h-10 rounded-full object-cover" />}
+                                <div>
+                                    <p className="font-bold text-sm">{campaign.footerName}</p>
+                                    {campaign.footerTitle && <p className="text-[10px]">{campaign.footerTitle}</p>}
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     </div>

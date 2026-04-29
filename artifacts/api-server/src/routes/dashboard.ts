@@ -1,10 +1,42 @@
 import { Router, type IRouter } from "express";
-import { db, campaignsTable, recipientsTable, sentEmailsTable, followUpStepsTable, emailEventsTable, webhookLogsTable } from "../../../../lib/db/src/index.js";
+import { db, campaignsTable, recipientsTable, sentEmailsTable, emailEventsTable, webhookLogsTable } from "../../../../lib/db/src/index.js";
 import { eq, count, and, sql, gte, isNotNull, inArray, desc } from "drizzle-orm";
 import { getResendCredentials } from "../lib/sendEmail.js";
 import { Resend } from "resend";
 
 const router: IRouter = Router();
+
+// Helper to get date range filters
+function getDateFilter(daysParam: any) {
+  const daysBack = parseInt(daysParam as string) || 30;
+  const now = new Date();
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+
+  if (daysBack === 1) {
+    // Today: From today 00:00:00 to now
+    return { start, end: now };
+  } else if (daysBack === 2) {
+    // Yesterday: Exactly yesterday 00:00:00 to 23:59:59
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(0, 0, 0, 0);
+    const yesterdayEnd = new Date(yesterday);
+    yesterdayEnd.setHours(23, 59, 59, 999);
+    return { start: yesterday, end: yesterdayEnd };
+  } else if (daysBack === 365) {
+    // All time: Start from 2020
+    const longAgo = new Date(2020, 0, 1);
+    return { start: longAgo, end: now };
+  } else {
+    // Last X days: From (X-1) days ago 00:00:00 to now
+    start.setDate(start.getDate() - (daysBack - 1));
+    return { start, end: now };
+  }
+}
 
 router.get("/dashboard/debug-creds", async (req, res) => {
   const credentials = await getResendCredentials();
@@ -29,28 +61,40 @@ router.post("/dashboard/sync-analytics", async (req, res) => {
     // Clean up malformed events (empty types)
     await db.delete(emailEventsTable).where(sql`${emailEventsTable.eventType} = ''`);
     
-    // Find recent sent emails with message IDs - increased to 500
+    // Find emails that don't have all tracked event types (opened, clicked)
+    // and were sent recently (last 7 days)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
     const recentSentEmails = await db
       .select()
       .from(sentEmailsTable)
-      .where(isNotNull(sentEmailsTable.messageId))
+      .where(and(
+        isNotNull(sentEmailsTable.messageId),
+        gte(sentEmailsTable.sentAt, sevenDaysAgo)
+      ))
       .orderBy(sql`${sentEmailsTable.sentAt} DESC`)
-      .limit(500);
+      .limit(100); // Reduced to 100 to avoid timeout
       
     let newEventsCount = 0;
+    let checkedCount = 0;
     
     // Iterate and sync status
     for (let i = 0; i < recentSentEmails.length; i++) {
       const email = recentSentEmails[i];
-      try {
-        // Add a small delay every 10 requests to respect Resend rate limits (10 req/s)
-        if (i > 0 && i % 10 === 0) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
+      
+      // Stop if taking too long (e.g. 20 seconds total)
+      // This is a safety measure to prevent "Failed to Fetch" (timeout)
+      if (i > 0 && i % 5 === 0) {
+        // Small delay to respect rate limits
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
 
+      try {
         console.log(`[sync] (${i + 1}/${recentSentEmails.length}) Checking status for message: ${email.messageId}`);
         const response = await resend.emails.get(email.messageId!);
         const data = response.data;
+        checkedCount++;
 
         if (data) {
           console.log(`[sync] Resend data for ${email.messageId}: last_event=${data.last_event}`);
@@ -105,11 +149,11 @@ router.post("/dashboard/sync-analytics", async (req, res) => {
       }
     }
     
-    console.log(`[sync] Completed. Checked ${recentSentEmails.length} emails. Found ${newEventsCount} missing events.`);
+    console.log(`[sync] Completed. Checked ${checkedCount} emails. Found ${newEventsCount} missing events.`);
     return res.json({ 
       success: true, 
       updatedCount: newEventsCount,
-      checkedCount: recentSentEmails.length,
+      checkedCount: checkedCount,
       credsFound: !!credentials
     });
   } catch (error) {
@@ -120,32 +164,35 @@ router.post("/dashboard/sync-analytics", async (req, res) => {
 
 router.get("/dashboard/stats", async (req, res) => {
   const { days = 30 } = req.query;
-  const daysBack = parseInt(days as string) || 30;
+  const { start, end } = getDateFilter(days);
   
-  const filterDate = new Date();
-  filterDate.setDate(filterDate.getDate() - daysBack);
-  filterDate.setHours(0, 0, 0, 0);
-
   const [totalCampaigns] = await db.select({ total: count() }).from(campaignsTable);
   const [activeCampaigns] = await db
     .select({ total: count() })
     .from(campaignsTable)
     .where(eq(campaignsTable.status, "active"));
-  const [totalRecipients] = await db.select({ total: count() }).from(recipientsTable);
+  
   const [totalReplied] = await db
     .select({ total: count() })
     .from(recipientsTable)
+    .innerJoin(sentEmailsTable, eq(sentEmailsTable.recipientId, recipientsTable.id))
     .where(and(
       eq(recipientsTable.replied, true),
-      sql`${recipientsTable.initialSentAt} IS NOT NULL`
+      isNotNull(recipientsTable.repliedAt),
+      gte(recipientsTable.repliedAt, start),
+      sql`${recipientsTable.repliedAt} <= ${end}`
     ));
 
-  const [contactsEmailed] = await db
+  const [emailsSent] = await db
     .select({ total: count() })
-    .from(recipientsTable)
-    .where(sql`${recipientsTable.initialSentAt} IS NOT NULL`);
+    .from(sentEmailsTable)
+    .where(and(
+      eq(sentEmailsTable.status, "sent"),
+      gte(sentEmailsTable.sentAt, start),
+      sql`${sentEmailsTable.sentAt} <= ${end}`
+    ));
 
-  const totalEmailed = Number(contactsEmailed?.total ?? 0);
+  const totalSent = Number(emailsSent?.total ?? 0);
   const totalRep = Number(totalReplied?.total ?? 0);
 
   // Email engagement stats
@@ -154,7 +201,8 @@ router.get("/dashboard/stats", async (req, res) => {
     .from(emailEventsTable)
     .where(and(
       sql`${emailEventsTable.eventType} = 'opened'`,
-      gte(emailEventsTable.timestamp, filterDate)
+      gte(emailEventsTable.timestamp, start),
+      sql`${emailEventsTable.timestamp} <= ${end}`
     ));
 
   const [emailsClicked] = await db
@@ -162,48 +210,18 @@ router.get("/dashboard/stats", async (req, res) => {
     .from(emailEventsTable)
     .where(and(
       sql`${emailEventsTable.eventType} = 'clicked'`,
-      gte(emailEventsTable.timestamp, filterDate)
+      gte(emailEventsTable.timestamp, start),
+      sql`${emailEventsTable.timestamp} <= ${end}`
     ));
 
-  const [emailsSent] = await db
-    .select({ total: count() })
-    .from(sentEmailsTable)
-    .where(and(
-      eq(sentEmailsTable.status, "sent"),
-      gte(sentEmailsTable.sentAt, filterDate)
-    ));
-
-  const totalSent = Number(emailsSent?.total ?? 0);
   const totalOpened = Number(emailsOpened?.total ?? 0);
   const totalClicked = Number(emailsClicked?.total ?? 0);
-
-  const pendingFollowUpsResult = await db
-    .select({ count: count() })
-    .from(followUpStepsTable)
-    .innerJoin(campaignsTable, eq(followUpStepsTable.campaignId, campaignsTable.id))
-    .innerJoin(recipientsTable, and(
-      eq(recipientsTable.campaignId, campaignsTable.id),
-      eq(recipientsTable.replied, false),
-      sql`${recipientsTable.initialSentAt} IS NOT NULL`
-    ))
-    .where(
-      sql`NOT EXISTS (
-        SELECT 1 FROM sent_emails se
-        WHERE se.recipient_id = ${recipientsTable.id}
-        AND se.follow_up_step_id = ${followUpStepsTable.id}
-        AND se.status = 'sent'
-      )`
-    );
-
-  const [pendingFollowUps] = pendingFollowUpsResult;
 
   return res.json({
     totalCampaigns: Number(totalCampaigns?.total ?? 0),
     activeCampaigns: Number(activeCampaigns?.total ?? 0),
-    totalRecipients: totalEmailed,
     totalReplied: totalRep,
-    replyRate: totalRep > 0 && totalEmailed > 0 ? Math.round((totalRep / totalEmailed) * 100) : 0,
-    pendingFollowUps: Number(pendingFollowUps?.count ?? 0),
+    replyRate: totalRep > 0 && totalSent > 0 ? Math.round((totalRep / totalSent) * 100) : 0,
     emailsSent: totalSent,
     emailsOpened: totalOpened,
     emailsClicked: totalClicked,
@@ -212,8 +230,11 @@ router.get("/dashboard/stats", async (req, res) => {
   });
 });
 
-router.get("/dashboard/recent-activity", async (_req, res) => {
-  // 1. Get recent email events (opens, clicks) - increased limit
+router.get("/dashboard/recent-activity", async (req, res) => {
+  const { days = 30 } = req.query;
+  const { start, end } = getDateFilter(days);
+
+  // 1. Get recent email events (opens, clicks)
   const emailEvents = await db
     .select({
       id: emailEventsTable.id,
@@ -222,14 +243,19 @@ router.get("/dashboard/recent-activity", async (_req, res) => {
       timestamp: emailEventsTable.timestamp,
     })
     .from(emailEventsTable)
-    .where(inArray(emailEventsTable.eventType, ['opened', 'clicked'] as any))
+    .where(and(
+      inArray(emailEventsTable.eventType, ['opened', 'clicked'] as any),
+      gte(emailEventsTable.timestamp, start),
+      sql`${emailEventsTable.timestamp} <= ${end}`
+    ))
     .orderBy(desc(emailEventsTable.timestamp))
     .limit(100);
 
-  // 2. Get recent sent emails - increased limit
+  // 2. Get recent sent emails
   const sentEmailsData = await db
     .select({
       id: sentEmailsTable.id,
+      campaignId: campaignsTable.id,
       subject: sentEmailsTable.subject,
       sentAt: sentEmailsTable.sentAt,
       stepNumber: sentEmailsTable.stepNumber,
@@ -242,7 +268,11 @@ router.get("/dashboard/recent-activity", async (_req, res) => {
     .from(sentEmailsTable)
     .innerJoin(recipientsTable, eq(sentEmailsTable.recipientId, recipientsTable.id))
     .innerJoin(campaignsTable, eq(recipientsTable.campaignId, campaignsTable.id))
-    .where(eq(sentEmailsTable.status, "sent"))
+    .where(and(
+      eq(sentEmailsTable.status, "sent"),
+      gte(sentEmailsTable.sentAt, start),
+      sql`${sentEmailsTable.sentAt} <= ${end}`
+    ))
     .orderBy(desc(sentEmailsTable.sentAt))
     .limit(100);
 
@@ -258,6 +288,7 @@ router.get("/dashboard/recent-activity", async (_req, res) => {
   const enrichedSentEmails = allNeededEmailIds.length > 0 ? await db
     .select({
       id: sentEmailsTable.id,
+      campaignId: campaignsTable.id,
       subject: sentEmailsTable.subject,
       sentAt: sentEmailsTable.sentAt,
       stepNumber: sentEmailsTable.stepNumber,
@@ -276,6 +307,7 @@ router.get("/dashboard/recent-activity", async (_req, res) => {
 
   const activity: Array<{
     id: number;
+    campaignId: number;
     type: "sent" | "replied" | "followup_sent" | "opened" | "clicked";
     campaignName: string;
     recipientEmail: string;
@@ -290,6 +322,7 @@ router.get("/dashboard/recent-activity", async (_req, res) => {
   for (const se of (sentEmailsData as any[]).slice(0, 30)) {
     activity.push({
       id: se.id,
+      campaignId: se.campaignId,
       type: se.stepNumber === 0 ? "sent" : "followup_sent",
       campaignName: se.campaignName,
       recipientEmail: se.email,
@@ -302,6 +335,7 @@ router.get("/dashboard/recent-activity", async (_req, res) => {
       repliedEmails.add(se.email);
       activity.push({
         id: se.id + 100000,
+        campaignId: se.campaignId,
         type: "replied",
         campaignName: se.campaignName,
         recipientEmail: se.email,
@@ -318,6 +352,7 @@ router.get("/dashboard/recent-activity", async (_req, res) => {
     if (sentEmail) {
       activity.push({
         id: event.id + 200000,
+        campaignId: sentEmail.campaignId,
         type: event.eventType as "opened" | "clicked",
         campaignName: sentEmail.campaignName,
         recipientEmail: sentEmail.email,
@@ -369,8 +404,9 @@ router.get("/dashboard/webhook-debug", async (req, res) => {
 });
 
 router.get("/dashboard/activity-detail", async (req, res) => {
-  const { type } = req.query;
+  const { type, days = 30 } = req.query;
   const activityType = type as string;
+  const { start, end } = getDateFilter(days);
   
   if (!activityType || !['opened', 'clicked', 'replied'].includes(activityType)) {
     return res.status(400).json({ error: "Invalid type" });
@@ -380,6 +416,7 @@ router.get("/dashboard/activity-detail", async (req, res) => {
     if (activityType === 'replied') {
       const results = await db
         .select({
+          campaignId: campaignsTable.id,
           recipientName: recipientsTable.name,
           recipientEmail: recipientsTable.email,
           campaignName: campaignsTable.name,
@@ -387,11 +424,15 @@ router.get("/dashboard/activity-detail", async (req, res) => {
         })
         .from(recipientsTable)
         .innerJoin(campaignsTable, eq(recipientsTable.campaignId, campaignsTable.id))
-        .where(eq(recipientsTable.replied, true))
+        .where(and(
+          eq(recipientsTable.replied, true),
+          isNotNull(recipientsTable.repliedAt),
+          gte(recipientsTable.repliedAt, start),
+          sql`${recipientsTable.repliedAt} <= ${end}`
+        ))
         .orderBy(desc(recipientsTable.repliedAt))
         .limit(100);
       
-      // Filter out null occurredAt before mapping
       return res.json(results
         .filter((r: any) => r.occurredAt !== null)
         .map((r: any) => ({ 
@@ -405,6 +446,7 @@ router.get("/dashboard/activity-detail", async (req, res) => {
       const results = await db
         .select({
           id: emailEventsTable.id,
+          campaignId: campaignsTable.id,
           eventType: emailEventsTable.eventType,
           occurredAt: emailEventsTable.timestamp,
           recipientName: recipientsTable.name,
@@ -416,7 +458,11 @@ router.get("/dashboard/activity-detail", async (req, res) => {
         .innerJoin(sentEmailsTable, eq(emailEventsTable.sentEmailId, sentEmailsTable.id))
         .innerJoin(recipientsTable, eq(sentEmailsTable.recipientId, recipientsTable.id))
         .innerJoin(campaignsTable, eq(recipientsTable.campaignId, campaignsTable.id))
-        .where(eq(emailEventsTable.eventType, activityType as any))
+        .where(and(
+          eq(emailEventsTable.eventType, activityType as any),
+          gte(emailEventsTable.timestamp, start),
+          sql`${emailEventsTable.timestamp} <= ${end}`
+        ))
         .orderBy(desc(emailEventsTable.timestamp))
         .limit(100);
       

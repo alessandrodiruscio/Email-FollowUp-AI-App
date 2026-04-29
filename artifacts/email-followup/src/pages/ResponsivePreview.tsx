@@ -57,6 +57,7 @@ export default function ResponsivePreview() {
   
   const subject = previewStep ? previewStep.subject : campaign.subject;
   const body = previewStep ? previewStep.body : campaign.body;
+  const includeFooter = previewStep ? previewStep.includeFooter : (campaign.includeFooter !== false);
 
   return (
     <div className="space-y-6">
@@ -109,14 +110,14 @@ export default function ResponsivePreview() {
                       fontSize={campaign.emailFontSize || "16"}
                       fontFamily={campaign.emailFontFamily || "sans-serif"}
                       lineHeight={campaign.emailLineHeight || "1.6"}
-                      footerName={campaign.footerName}
-                      footerTitle={campaign.footerTitle}
-                      footerImageUrl={campaign.footerImageUrl}
-                      footerWebsite={campaign.footerWebsite}
-                      footerWebsiteUrl={campaign.footerWebsiteUrl}
-                      footerFacebook={campaign.footerFacebook}
-                      footerInstagram={campaign.footerInstagram}
-                      footerYoutube={campaign.footerYoutube}
+                      footerName={includeFooter ? campaign.footerName : undefined}
+                      footerTitle={includeFooter ? campaign.footerTitle : undefined}
+                      footerImageUrl={includeFooter ? campaign.footerImageUrl : undefined}
+                      footerWebsite={includeFooter ? campaign.footerWebsite : undefined}
+                      footerWebsiteUrl={includeFooter ? campaign.footerWebsiteUrl : undefined}
+                      footerFacebook={includeFooter ? campaign.footerFacebook : undefined}
+                      footerInstagram={includeFooter ? campaign.footerInstagram : undefined}
+                      footerYoutube={includeFooter ? campaign.footerYoutube : undefined}
                     />
                   </div>
                 </div>

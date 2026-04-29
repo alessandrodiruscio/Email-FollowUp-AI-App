@@ -1,30 +1,214 @@
-import { useGetRecentActivity, customFetch, getGetRecentActivityQueryKey } from "@workspace/api-client-react";
-import { useDashboardStats, getDashboardStatsQueryKey } from "@/hooks/useDashboardStats";
+import { customFetch } from "@workspace/api-client-react";
+import { useDashboardStats } from "@/hooks/useDashboardStats";
+import { useRecentActivity } from "@/hooks/useRecentActivity";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Mail, CheckCircle2, Users, Clock, ArrowUpRight, Inbox, MailOpen, MousePointerClick, X, RefreshCw, Activity } from "lucide-react";
+import { Mail, CheckCircle2, Clock, ArrowUpRight, Inbox, MailOpen, MousePointerClick, X, RefreshCw, Activity, Settings2, ExternalLink, Copy } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate } from "@/lib/utils";
 import { motion } from "framer-motion";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { useAutoSync } from "@/hooks/useAutoSync";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+
+function WebhookSetupDialog() {
+  const origin = window.location.origin;
+  const isDev = origin.includes('ais-dev');
+  const publicOrigin = isDev ? origin.replace('ais-dev', 'ais-pre') : origin;
+  const webhookUrl = `${publicOrigin}/w`;
+  const validationUrl = `${publicOrigin}/public-health-check`;
+  const [localStatus, setLocalStatus] = useState<string | null>(null);
+
+  const verifyLocal = async () => {
+    setLocalStatus("Checking...");
+    try {
+      const res = await fetch("/public-health-check");
+      const text = await res.text();
+      if (text === "OK-SERVER-IS-UP") {
+        setLocalStatus("Server is active locally!");
+        toast.success("Internal server is running!");
+      } else {
+        setLocalStatus("Server returned unexpected response.");
+      }
+    } catch (e) {
+      setLocalStatus("Could not reach local server.");
+      console.error(e);
+    }
+  };
+
+  const copyWebhook = () => {
+    navigator.clipboard.writeText(webhookUrl);
+    toast.success("Webhook URL copied to clipboard!");
+  };
+
+  const testPublicPost = async () => {
+    toast.info("Sending test POST to public URL...");
+    try {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), 10000);
+      
+      const res = await fetch(webhookUrl + "/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          type: "ping-test", 
+          test: true,
+          timestamp: new Date().toISOString() 
+        }),
+        signal: controller.signal
+      });
+      clearTimeout(id);
+      
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`HTTP ${res.status}: ${text.substring(0, 100)}`);
+      }
+      
+      const data = await res.json();
+      if (data.received) {
+        toast.success("Public POST succeeded! Your app is fully open.");
+        alert("✅ SUCCESS: The public URL responded correctly to a POST request.");
+      } else {
+        toast.error("Public POST failed. Received unexpected response.");
+        alert("❌ FAILED: Received unexpected response from server.");
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(`Public POST failed: ${msg}`);
+      console.error(e);
+      alert(`❌ ERROR: Could not reach public URL via POST.\n\nPossible reasons:\n1. App is not Shared in AI Studio\n2. Browser CORS policy blocked the test (server will still work for Resend)\n\nError detail: ${msg}`);
+    }
+  };
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button 
+          variant="outline" 
+          className="gap-2 border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary font-bold shadow-sm h-10"
+        >
+          <Settings2 className="w-4 h-4" />
+          Configure Webhooks
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Settings2 className="w-5 h-5 text-primary" />
+            Webhook Configuration
+          </DialogTitle>
+          <DialogDescription>
+            Live tracking for opens, clicks and replies requires a public webhook.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6 py-4">
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold flex items-center gap-2">
+              <Badge variant="outline" className="w-6 h-6 rounded-full flex items-center justify-center p-0">1</Badge>
+              Verify App Sharing
+            </h4>
+            <div className="p-4 bg-muted/30 border rounded-xl space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium">Internal Server Status:</span>
+                <div className="flex items-center gap-2">
+                  <span className={`text-[10px] ${localStatus === "Server is active locally!" ? "text-green-600" : "text-muted-foreground"}`}>
+                    {localStatus || "Not checked"}
+                  </span>
+                  <Button size="xs" variant="ghost" onClick={verifyLocal} className="h-6 px-2 text-[10px]">
+                    Check Now
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg space-y-3">
+                <p className="text-[11px] text-amber-800 font-medium">
+                  Resend can ONLY reach your app if you have clicked <strong>"Share"</strong> in the top right of AI Studio.
+                </p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full gap-2 bg-white border-amber-300 text-amber-900 hover:bg-amber-100 h-8"
+                    onClick={() => window.open(validationUrl, '_blank')}
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    Test Public GET
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full gap-2 bg-white border-amber-300 text-amber-900 hover:bg-amber-100 h-8"
+                    onClick={testPublicPost}
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    Test Public POST
+                  </Button>
+                  <div className="bg-blue-50 border border-blue-100 p-2 rounded text-[10px] text-blue-800 space-y-1">
+                    <p><strong>Note:</strong> If "Test Public POST" fails with "Failed to fetch", it is usually due to browser security (CORS) between Dev and Shared domains.</p>
+                    <p>As long as <strong>Test Public GET</strong> shows "OK-SERVER-IS-UP", <strong>Resend webhooks will work perfectly.</strong></p>
+                  </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold flex items-center gap-2">
+              <Badge variant="outline" className="w-6 h-6 rounded-full flex items-center justify-center p-0">2</Badge>
+              Copy Webhook URL
+            </h4>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 p-2 bg-muted rounded border text-[11px] font-mono break-all line-clamp-1">
+                {webhookUrl}
+              </code>
+              <Button size="sm" onClick={copyWebhook} className="shrink-0 gap-2">
+                <Copy className="w-3 h-3" />
+                Copy
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold flex items-center gap-2">
+              <Badge variant="outline" className="w-6 h-6 rounded-full flex items-center justify-center p-0">3</Badge>
+              Update Resend Dashboard
+            </h4>
+            <p className="text-xs text-muted-foreground">
+              Go to <a href="https://resend.com/webhooks" target="_blank" className="text-primary hover:underline">Resend Webhooks</a> and add this URL. Select <code>email.opened</code>, <code>email.clicked</code>, and <code>email.bounced</code>.
+            </p>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function Dashboard() {
   const [daysFilter, setDaysFilter] = useState(30);
+  const [, setLocation] = useLocation();
   const [selectedDetailType, setSelectedDetailType] = useState<'replied' | 'opened' | 'clicked' | null>(null);
   const [detailData, setDetailData] = useState<any[]>([]);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const queryClient = useQueryClient();
+  const { isSyncing, handleSync } = useAutoSync();
   
   const { data: stats, isLoading: isLoadingStats } = useDashboardStats(daysFilter);
-  const { data: activityData, isLoading: isLoadingActivity } = useGetRecentActivity();
+  const { data: activityData, isLoading: isLoadingActivity } = useRecentActivity(daysFilter);
   const activity = Array.isArray(activityData) ? activityData : [];
 
-  const fetchDetail = async (type: string) => {
+  const fetchDetail = useCallback(async (type: string) => {
     setIsLoadingDetail(true);
     try {
-      const data = await customFetch<any[]>(`/api/dashboard/activity-detail?type=${type}`);
+      const data = await customFetch<any[]>(`/api/dashboard/activity-detail?type=${type}&days=${daysFilter}`);
       setDetailData(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Failed to fetch detail:", err);
@@ -32,35 +216,17 @@ export default function Dashboard() {
     } finally {
       setIsLoadingDetail(false);
     }
-  };
+  }, [daysFilter]);
+
+  useEffect(() => {
+    if (selectedDetailType) {
+      fetchDetail(selectedDetailType);
+    }
+  }, [selectedDetailType, fetchDetail]);
 
   const handleStatClick = (type: 'replied' | 'opened' | 'clicked') => {
     setSelectedDetailType(type);
-    fetchDetail(type);
   };
-
-  const handleSync = async () => {
-    if (isSyncing) return;
-    setIsSyncing(true);
-    try {
-      const data = await customFetch<any>("/api/dashboard/sync-analytics", { method: "POST" });
-      if (data.success) {
-        queryClient.invalidateQueries({ queryKey: getDashboardStatsQueryKey(daysFilter) });
-        queryClient.invalidateQueries({ queryKey: getGetRecentActivityQueryKey() });
-        alert(`Sync complete! Found ${data.updatedCount} new engagement events.`);
-      } else {
-        alert(`Sync failed: ${data.error || 'Unknown error'}`);
-      }
-    } catch (err) {
-      console.error("Sync failed:", err);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-  
-  const filteredActivity = selectedDetailType 
-    ? activity?.filter(item => item.type === selectedDetailType) || []
-    : [];
 
   const statCards = [
     {
@@ -118,54 +284,35 @@ export default function Dashboard() {
           <p className="text-muted-foreground text-lg">Here's what's happening with your outreach.</p>
         </div>
         
-        <div className="flex gap-2 flex-wrap items-center justify-between">
-          <div className="flex gap-2 flex-wrap">
-            {[
-              { label: "Today", days: 1 },
-              { label: "Yesterday", days: 2 },
-              { label: "Last 3 days", days: 3 },
-              { label: "Last 7 days", days: 7 },
-              { label: "Last 30 days", days: 30 },
-              { label: "All time", days: 365 },
-            ].map((option) => (
-              <button
-                key={option.days}
-                onClick={() => setDaysFilter(option.days)}
-                className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
-                  daysFilter === option.days
-                    ? "bg-primary text-primary-foreground shadow-md"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          <div className="flex flex-col gap-6">
+            <div className="flex gap-2 flex-wrap items-center justify-between">
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex gap-2 flex-wrap">
+                  {[
+                    { label: "Today", days: 1 },
+                    { label: "Yesterday", days: 2 },
+                    { label: "Last 3 days", days: 3 },
+                    { label: "Last 7 days", days: 7 },
+                    { label: "Last 30 days", days: 30 },
+                    { label: "All time", days: 365 },
+                  ].map((option) => (
+                    <button
+                      key={option.days}
+                      onClick={() => setDaysFilter(option.days)}
+                      className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                        daysFilter === option.days
+                          ? "bg-primary text-primary-foreground shadow-md"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
 
-          <div className="flex flex-col md:flex-row items-stretch gap-6 bg-muted/20 p-6 rounded-2xl border border-dashed">
-            <div className="flex-1 space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                <p className="text-sm font-semibold text-foreground">Webhook Endpoint Active</p>
+                <WebhookSetupDialog />
               </div>
-              <p className="text-xs text-muted-foreground">Configure this URL in your Resend Dashboard to receive real-time updates for opens and clicks.</p>
-              <div className="flex items-center gap-2 mt-2">
-                <code className="text-[11px] font-mono bg-background/80 p-2 rounded border flex-1 break-all">
-                  {window.location.origin}/api/webhooks/resend
-                </code>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => {
-                    navigator.clipboard.writeText(`${window.location.origin}/api/webhooks/resend`);
-                  }}
-                  className="shrink-0"
-                >
-                  Copy
-                </Button>
-              </div>
-            </div>
-            
+
             <div className="flex items-center gap-4 bg-background/40 p-4 rounded-xl border">
               <div className="space-y-1">
                 <p className="text-sm font-semibold text-foreground">Sync History</p>
@@ -174,7 +321,7 @@ export default function Dashboard() {
               <Button
                 variant="default"
                 size="lg"
-                onClick={handleSync}
+                onClick={() => handleSync(false)}
                 disabled={isSyncing}
                 className="gap-2 font-bold shadow-lg shadow-primary/20 min-w-[140px]"
               >
@@ -183,8 +330,6 @@ export default function Dashboard() {
               </Button>
             </div>
           </div>
-
-          <WebhookDebugSection />
         </div>
       </div>
 
@@ -269,7 +414,11 @@ export default function Dashboard() {
             ) : activity && activity.length > 0 ? (
               <div className="space-y-6">
                 {activity.map((item, i) => (
-                  <div key={item.id} className="flex items-start gap-4 relative group">
+                  <div 
+                    key={item.id} 
+                    className="flex items-start gap-4 relative group cursor-pointer"
+                    onClick={() => setLocation(`/campaigns/${item.campaignId}`)}
+                  >
                     {i !== activity.length - 1 && (
                       <div className="absolute top-10 left-5 w-px h-full -ml-px bg-border group-hover:bg-primary/20 transition-colors" />
                     )}
@@ -315,6 +464,8 @@ export default function Dashboard() {
             )}
           </CardContent>
         </Card>
+
+        <WebhookDebugSection />
       </div>
 
       {/* Detail Modal */}
@@ -355,7 +506,14 @@ export default function Dashboard() {
               ) : detailData.length > 0 ? (
                 <div className="space-y-4">
                   {detailData.map((item, idx) => (
-                    <div key={item.id || idx} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                    <div 
+                      key={item.id || idx} 
+                      className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer border border-transparent hover:border-primary/20"
+                      onClick={() => {
+                        setSelectedDetailType(null);
+                        setLocation(`/campaigns/${item.campaignId}`);
+                      }}
+                    >
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0
                         ${item.type === 'replied' ? 'bg-emerald-100 text-emerald-600' : 
                           item.type === 'opened' ? 'bg-purple-100 text-purple-600' :
@@ -475,51 +633,16 @@ function WebhookDebugSection() {
           >
             Simulate Event
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              const origin = window.location.origin;
-              const isDev = origin.includes('ais-dev');
-              
-              // External webhooks MUST use the ais-pre origin
-              const publicOrigin = isDev ? origin.replace('ais-dev', 'ais-pre') : origin;
-              const webhookUrl = `${publicOrigin}/public/resend`;
-              
-              const message = `
-⚠️ WEBHOOK SETUP GUIDE
-
-1. ENSURE APP IS SHARED:
-Click the "Share" button in AI Studio (top right) and ensure it is "Shared". If not shared, the webhook URL will return a 404.
-
-2. COPY THIS URL:
-${webhookUrl}
-
-3. GO TO RESEND:
-Dashboard > Webhooks > Add Webhook.
-
-4. CONFIGURE:
-- Endpoint URL: (Paste the URL above)
-- Events: email.sent, email.delivered, email.opened, email.clicked.
-              `.trim();
-              
-              navigator.clipboard.writeText(webhookUrl);
-              alert(message);
-              showStatus("Public URL copied!", "success");
-            }}
-            className="text-xs h-9"
-          >
-            Copy Webhook URL
-          </Button>
+          <WebhookSetupDialog />
           <Button
             variant="outline"
             size="sm"
             onClick={async () => {
               showStatus("Verifying endpoint...");
               try {
-                const res = await fetch("/public/resend", { method: "GET" });
+                const res = await fetch("/p", { method: "GET" });
                 const data = await res.json();
-                showStatus(`Endpoint: ${data.status || 'Active'}`, 'success');
+                showStatus(`Endpoint: ${data.message || 'Active'}`, 'success');
               } catch (e) {
                 showStatus(`Verify failed: ${e}`, 'error');
               }
@@ -561,14 +684,14 @@ Dashboard > Webhooks > Add Webhook.
               </thead>
               <tbody className="divide-y divide-muted/30">
                 {logs.map((log: any) => {
-                  let payload: any = {};
+                  let parsedPayload: any;
                   try {
-                    payload = typeof log.payload === 'string' ? JSON.parse(log.payload) : log.payload;
+                    parsedPayload = typeof log.payload === 'string' ? JSON.parse(log.payload) : (log.payload || {});
                   } catch (e) {
-                    payload = { type: 'invalid_json' };
+                    parsedPayload = { type: 'invalid_json' };
                   }
                   
-                  const emailId = payload?.data?.email_id || payload?.email_id || 'N/A';
+                  const emailId = parsedPayload?.data?.email_id || parsedPayload?.email_id || 'N/A';
                   const eventTime = log.receivedAt || log.received_at;
                   
                   return (
@@ -588,7 +711,7 @@ Dashboard > Webhooks > Add Webhook.
                         </span>
                       </td>
                       <td className="px-4 py-3 font-bold text-foreground">
-                        {payload?.type ? payload.type.replace('email.', '') : 'unknown'}
+                        {parsedPayload?.type ? parsedPayload.type.replace('email.', '') : 'unknown'}
                       </td>
                       <td className="px-4 py-3 font-mono text-muted-foreground truncate max-w-[150px]">
                         {emailId}

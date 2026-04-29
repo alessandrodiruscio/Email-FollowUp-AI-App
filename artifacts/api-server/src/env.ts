@@ -3,22 +3,11 @@ import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
 
-let __dirname: string;
-try {
-  if (import.meta.url) {
-    const __filename = fileURLToPath(import.meta.url);
-    __dirname = path.dirname(__filename);
-  } else {
-    __dirname = process.cwd();
-  }
-} catch {
-  __dirname = process.cwd();
-}
+const rootDir = process.cwd();
 
 const potentialPaths = [
-  path.resolve(__dirname, "../../..", ".env"), 
-  path.resolve(__dirname, "../.env"),            
-  path.resolve(process.cwd(), ".env"),           
+  path.resolve(rootDir, ".env"),           
+  path.resolve(rootDir, "artifacts/api-server/.env"),
   "/.env",                                       
 ];
 

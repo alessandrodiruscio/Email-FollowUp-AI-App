@@ -104,7 +104,7 @@ export default function CreateCampaign() {
       emailFontSize: "16",
       emailFontFamily: "sans-serif",
       emailLineHeight: "1.6",
-      includeFooter: false,
+      includeFooter: true,
     },
   });
 
@@ -245,7 +245,7 @@ export default function CreateCampaign() {
     : (followUpSteps[activePreview as number]?.body ?? "");
   const previewIncludeFooter = activePreview === "initial"
     ? form.watch("includeFooter")
-    : (followUpSteps[activePreview as number]?.includeFooter ?? false);
+    : (followUpSteps[activePreview as number]?.includeFooter ?? true);
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
@@ -307,6 +307,8 @@ export default function CreateCampaign() {
                           if (foundReason.templateBody) { form.setValue("body", foundReason.templateBody); applied.body = true; }
                           if (foundReason.templateIncludeFooter !== null && foundReason.templateIncludeFooter !== undefined) {
                             form.setValue("includeFooter", foundReason.templateIncludeFooter);
+                          } else {
+                            form.setValue("includeFooter", true);
                           }
                           const steps = foundReason.followUpTemplates ?? [];
                           applied.followUps = steps.length;
@@ -316,7 +318,7 @@ export default function CreateCampaign() {
                             delayUnit: (t.delayUnit || "days") as "minutes" | "hours" | "days",
                             subject: t.subject,
                             body: t.body,
-                            includeFooter: t.includeFooter ?? false,
+                            includeFooter: t.includeFooter ?? true,
                           })));
                           setExpandedStep(steps.length > 0 ? 0 : null);
                           setActivePreview("initial");
