@@ -107,6 +107,16 @@ app.get("/health", (req, res) => {
   return res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+app.get("/api/env-check", (req, res) => {
+  return res.json({ 
+    cwd: process.cwd(),
+    nodeEnv: process.env.NODE_ENV,
+    distPath,
+    exists: fs.existsSync(distPath),
+    indexExists: fs.existsSync(path.join(distPath, "index.html"))
+  });
+});
+
 app.get("/api/ping", (req, res) => {
   return res.json({ message: "pong", dbConnected: !!db });
 });
@@ -121,10 +131,10 @@ const rootPath = process.cwd();
 
 // Try several potential locations for dist/public relative to process.cwd()
 const potentialDistPaths = [
+  path.resolve(rootPath, "public"),
   path.resolve(rootPath, "dist/public"),
   path.resolve(rootPath, "artifacts/api-server/dist/public"),
   path.resolve(rootPath, "artifacts/email-followup/dist/public"),
-  path.resolve(rootPath, "public"),
 ];
 
 let distPath = potentialDistPaths[0];
@@ -135,33 +145,34 @@ for (const p of potentialDistPaths) {
   }
 }
 
-if (isProd) {
-  console.log(`[app] Production mode: Serving static from ${distPath}`);
+// 138: STATIC FILES & SPA FALLBACK (After API routes)
+console.log(`[app] Attempting to serve static from ${distPath}`);
+
+// Serve static files from distPath
+app.use(express.static(distPath));
+
+// SPA fallback - Catch-all for frontend routes
+app.use((req: Request, res: Response, next: NextFunction) => {
+  // 1. Skip API calls
+  if (req.path.startsWith("/api") || req.path.startsWith("/health") || req.path.startsWith("/reasons") || req.path.startsWith("/ping")) {
+    return next();
+  }
   
-  // Serve static files from distPath
-  app.use(express.static(distPath));
+  // 2. Skip files with extensions
+  if (req.path.includes(".") && !req.path.endsWith(".html")) {
+    return next();
+  }
   
-  // SPA fallback - Catch-all for frontend routes
-  app.use((req, res, next) => {
-    // 1. Skip API calls (they already have 404 handler or were matched)
-    if (req.path.startsWith("/api") || req.path.startsWith("/health") || req.path.startsWith("/reasons")) {
-      return next();
-    }
-    
-    // 2. Skip files with extensions (should have been caught by express.static)
-    if (req.path.includes(".") && !req.path.endsWith(".html")) {
-      return next();
-    }
-    
-    // 3. Serve index.html for everything else (SPA)
-    const indexPath = path.resolve(distPath, "index.html");
-    if (fs.existsSync(indexPath)) {
-      return res.sendFile(indexPath);
-    }
-    
-    next();
-  });
-}
+  // 3. Serve index.html for everything else
+  const indexPath = path.resolve(distPath, "index.html");
+  if (fs.existsSync(indexPath)) {
+    return res.sendFile(indexPath);
+  } else {
+    console.warn(`[app] SPA fallback: index.html not found at ${indexPath}`);
+  }
+  
+  next();
+});
 
 interface ZodIssue {
   path: (string | number)[];

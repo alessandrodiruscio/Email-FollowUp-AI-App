@@ -4,6 +4,7 @@ import TextAlign from "@tiptap/extension-text-align";
 import { Button } from "./button";
 import { Bold, Italic, List, ListOrdered, AlignLeft, AlignCenter, AlignRight, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
+import * as React from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,

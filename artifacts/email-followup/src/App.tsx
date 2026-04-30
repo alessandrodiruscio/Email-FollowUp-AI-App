@@ -1,3 +1,4 @@
+import * as React from "react";
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster as RadixToaster } from "@/components/ui/toaster";

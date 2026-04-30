@@ -1,3 +1,4 @@
+import * as React from "react";
 import { customFetch } from "@workspace/api-client-react";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { useRecentActivity } from "@/hooks/useRecentActivity";

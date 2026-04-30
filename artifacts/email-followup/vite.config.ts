@@ -10,7 +10,9 @@ const basePath = process.env.BASE_PATH || "/";
 export default defineConfig({
   base: "/",
   plugins: [
-    react(),
+    react({
+      jsxRuntime: 'automatic',
+    }),
     tailwindcss(),
   ],
   resolve: {

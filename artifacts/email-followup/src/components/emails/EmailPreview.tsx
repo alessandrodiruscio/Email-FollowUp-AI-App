@@ -1,3 +1,5 @@
+import * as React from "react";
+
 interface EmailPreviewProps {
   subject: string;
   body: string;

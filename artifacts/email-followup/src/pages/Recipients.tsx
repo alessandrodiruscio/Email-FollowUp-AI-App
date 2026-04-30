@@ -1,3 +1,4 @@
+import * as React from "react";
 import { useState, useEffect, useMemo } from "react";
 import { Mail, Calendar, Loader2, Search } from "lucide-react";
 import { Link } from "wouter";
