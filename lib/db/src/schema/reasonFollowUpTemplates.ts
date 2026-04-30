@@ -1,7 +1,7 @@
 import { mysqlTable, int, text, boolean } from "drizzle-orm/mysql-core";
-import { reasonsTable } from "./reasons";
+import { reasonsTable } from "./reasons.js";
 import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 export const reasonFollowUpTemplatesTable = mysqlTable("reason_follow_up_templates", {
   id: int("id").primaryKey().autoincrement(),

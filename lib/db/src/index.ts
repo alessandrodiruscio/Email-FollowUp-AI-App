@@ -1,15 +1,15 @@
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
-import * as campaigns from "./schema/campaigns";
-import * as reasons from "./schema/reasons";
-import * as reasonFollowUpTemplates from "./schema/reasonFollowUpTemplates";
-import * as recipients from "./schema/recipients";
-import * as followUpSteps from "./schema/followUpSteps";
-import * as sentEmails from "./schema/sentEmails";
-import * as emailEvents from "./schema/emailEvents";
-import * as conversations from "./schema/conversations";
-import * as messages from "./schema/messages";
-import * as webhookLogs from "./schema/webhookLogs";
+import * as campaigns from "./schema/campaigns.js";
+import * as reasons from "./schema/reasons.js";
+import * as reasonFollowUpTemplates from "./schema/reasonFollowUpTemplates.js";
+import * as recipients from "./schema/recipients.js";
+import * as followUpSteps from "./schema/followUpSteps.js";
+import * as sentEmails from "./schema/sentEmails.js";
+import * as emailEvents from "./schema/emailEvents.js";
+import * as conversations from "./schema/conversations.js";
+import * as messages from "./schema/messages.js";
+import * as webhookLogs from "./schema/webhookLogs.js";
 
 const schema = {
   ...campaigns,

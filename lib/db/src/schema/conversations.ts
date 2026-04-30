@@ -1,7 +1,7 @@
 import { mysqlTable, int, text, datetime } from "drizzle-orm/mysql-core";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 export const conversations = mysqlTable("conversations", {
   id: int("id").primaryKey().autoincrement(),
