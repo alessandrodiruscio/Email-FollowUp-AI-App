@@ -85,13 +85,13 @@ if (!process.env.DATABASE_URL) {
 export { db, connectionError };
 export const pool = poolConnection;
 
-export * from "./schema/campaigns";
-export * from "./schema/reasons";
-export * from "./schema/reasonFollowUpTemplates";
-export * from "./schema/recipients";
-export * from "./schema/followUpSteps";
-export * from "./schema/sentEmails";
-export * from "./schema/emailEvents";
-export * from "./schema/conversations";
-export * from "./schema/messages";
-export * from "./schema/webhookLogs";
+export * from "./schema/campaigns.js";
+export * from "./schema/reasons.js";
+export * from "./schema/reasonFollowUpTemplates.js";
+export * from "./schema/recipients.js";
+export * from "./schema/followUpSteps.js";
+export * from "./schema/sentEmails.js";
+export * from "./schema/emailEvents.js";
+export * from "./schema/conversations.js";
+export * from "./schema/messages.js";
+export * from "./schema/webhookLogs.js";
