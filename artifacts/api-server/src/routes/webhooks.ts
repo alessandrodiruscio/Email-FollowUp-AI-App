@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, sentEmailsTable, emailEventsTable, recipientsTable, webhookLogsTable } from "@workspace/db";
+import { db, sentEmailsTable, emailEventsTable, recipientsTable, webhookLogsTable } from "../../../../lib/db/src/index";
 import { eq, desc, and, sql } from "drizzle-orm";
 
 const router = Router();
