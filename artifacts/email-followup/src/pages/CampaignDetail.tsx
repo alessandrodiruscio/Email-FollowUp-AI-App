@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, Link } from "wouter";
 import { 
   useGetCampaign, 
@@ -30,7 +30,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { RichTextEditor } from "@/components/ui/RichTextEditor";
-import { ArrowLeft, Send, Mail, Users, Clock, CheckCircle2, Trash2, StopCircle, RefreshCw, Pencil, Loader2, Plus, Zap, ChevronDown, ChevronUp, MailOpen, MousePointerClick } from "lucide-react";
+import { ArrowLeft, Send, Mail, Users, Clock, CheckCircle2, Trash2, StopCircle, RefreshCw, Pencil, Loader2, Plus, Zap, ChevronDown, ChevronUp, MailOpen, MousePointerClick, Search } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { getStatusColor, formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -640,6 +640,7 @@ export default function CampaignDetail() {
   const [testingStepNumber, setTestingStepNumber] = useState<number | undefined>(undefined);
   const [displayStepNumber, setDisplayStepNumber] = useState<number | undefined>(undefined);
   const [showEditCampaignDialog, setShowEditCampaignDialog] = useState(false);
+  const [recipientSearchQuery, setRecipientSearchQuery] = useState("");
 
   const handleSend = () => {
     sendMutation.mutate({ id: campaignId }, {
@@ -771,6 +772,15 @@ export default function CampaignDetail() {
     });
   };
 
+  const filteredRecipients = useMemo(() => {
+    if (!campaign?.recipients) return [];
+    const search = recipientSearchQuery.toLowerCase();
+    return campaign.recipients.filter(rec => 
+      rec.name.toLowerCase().includes(search) || 
+      rec.email.toLowerCase().includes(search)
+    );
+  }, [campaign?.recipients, recipientSearchQuery]);
+
   if (isLoading) {
     return (
       <div className="space-y-8">
@@ -891,9 +901,21 @@ export default function CampaignDetail() {
 
         <div className="mt-8">
           <TabsContent value="recipients" className="space-y-6 outline-none">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <h2 className="text-xl font-display font-bold">Contact List</h2>
-              <AddRecipientDialog campaignId={campaign.id} />
+              <div className="flex items-center gap-3 flex-1 max-w-lg">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="search"
+                    placeholder="Search recipients..."
+                    className="pl-8 h-10 rounded-xl"
+                    value={recipientSearchQuery}
+                    onChange={(e) => setRecipientSearchQuery(e.target.value)}
+                  />
+                </div>
+                <AddRecipientDialog campaignId={campaign.id} />
+              </div>
             </div>
 
             {campaign.recipients.length > 0 && <TimelineLegend />}
@@ -921,7 +943,7 @@ export default function CampaignDetail() {
                     </thead>
                     <tbody>
                       <AnimatePresence>
-                        {campaign.recipients.map((rec) => (
+                        {filteredRecipients.map((rec) => (
                           <motion.tr 
                             key={rec.id}
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}

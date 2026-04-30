@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
-import { Mail, Calendar, Loader2 } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Mail, Calendar, Loader2, Search } from "lucide-react";
 import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { formatDate } from "@/lib/utils";
 import { useListCampaigns } from "@workspace/api-client-react";
 
@@ -32,6 +33,7 @@ export default function Recipients() {
   const [loading, setLoading] = useState(true);
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const [searchQuery, setSearchQuery] = useState("");
   const { data: campaigns = [] } = useListCampaigns();
 
   useEffect(() => {
@@ -74,7 +76,17 @@ export default function Recipients() {
     }
   };
 
-  const sortedRecipients = [...recipients].sort((a, b) => {
+  const filteredRecipients = useMemo(() => {
+    return recipients.filter((recipient) => {
+      const searchStr = searchQuery.toLowerCase();
+      return (
+        recipient.name.toLowerCase().includes(searchStr) ||
+        recipient.email.toLowerCase().includes(searchStr)
+      );
+    });
+  }, [recipients, searchQuery]);
+
+  const sortedRecipients = [...filteredRecipients].sort((a, b) => {
     const aVal = a[sortField];
     const bVal = b[sortField];
 
@@ -115,8 +127,18 @@ export default function Recipients() {
       </div>
 
       <Card className="border-none shadow-md">
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <CardTitle>Recipients Database</CardTitle>
+          <div className="relative w-full max-w-sm">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search name or email..."
+              className="pl-8"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
