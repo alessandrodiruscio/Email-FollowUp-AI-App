@@ -2,6 +2,8 @@ import express, { type Express, type Request, type Response, type NextFunction }
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { db, connectionError } from "../../../lib/db/src/index.js";
+import fs from "fs";
+import path from "path";
 import router from "./routes/index.js";
 import webhooksRouter from "./routes/webhooks.js";
 import initRouter from "./routes/init.js";
@@ -109,9 +111,57 @@ app.get("/api/ping", (req, res) => {
   return res.json({ message: "pong", dbConnected: !!db });
 });
 
-// Mount routes
+// 112: Mount routes
 app.use("/api", router);
 app.use("/api", initRouter);
+
+// 3. STATIC FILES & SPA FALLBACK (After API routes)
+const isProd = process.env.NODE_ENV === "production";
+const rootPath = process.cwd();
+
+// Try several potential locations for dist/public relative to process.cwd()
+const potentialDistPaths = [
+  path.resolve(rootPath, "dist/public"),
+  path.resolve(rootPath, "artifacts/api-server/dist/public"),
+  path.resolve(rootPath, "artifacts/email-followup/dist/public"),
+  path.resolve(rootPath, "public"),
+];
+
+let distPath = potentialDistPaths[0];
+for (const p of potentialDistPaths) {
+  if (fs.existsSync(p)) {
+    distPath = p;
+    break;
+  }
+}
+
+if (isProd) {
+  console.log(`[app] Production mode: Serving static from ${distPath}`);
+  
+  // Serve static files from distPath
+  app.use(express.static(distPath));
+  
+  // SPA fallback - Catch-all for frontend routes
+  app.use((req, res, next) => {
+    // 1. Skip API calls (they already have 404 handler or were matched)
+    if (req.path.startsWith("/api") || req.path.startsWith("/health") || req.path.startsWith("/reasons")) {
+      return next();
+    }
+    
+    // 2. Skip files with extensions (should have been caught by express.static)
+    if (req.path.includes(".") && !req.path.endsWith(".html")) {
+      return next();
+    }
+    
+    // 3. Serve index.html for everything else (SPA)
+    const indexPath = path.resolve(distPath, "index.html");
+    if (fs.existsSync(indexPath)) {
+      return res.sendFile(indexPath);
+    }
+    
+    next();
+  });
+}
 
 interface ZodIssue {
   path: (string | number)[];
