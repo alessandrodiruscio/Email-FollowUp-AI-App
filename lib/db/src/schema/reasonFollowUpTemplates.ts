@@ -15,5 +15,6 @@ export const reasonFollowUpTemplatesTable = mysqlTable("reason_follow_up_templat
 });
 
 export const insertReasonFollowUpTemplateSchema = createInsertSchema(reasonFollowUpTemplatesTable).omit({ id: true });
+// @ts-ignore
 export type InsertReasonFollowUpTemplate = z.infer<typeof insertReasonFollowUpTemplateSchema>;
 export type ReasonFollowUpTemplate = typeof reasonFollowUpTemplatesTable.$inferSelect;

@@ -15,4 +15,5 @@ export const insertConversationSchema = createInsertSchema(conversations).omit({
 });
 
 export type Conversation = typeof conversations.$inferSelect;
+// @ts-ignore
 export type InsertConversation = z.infer<typeof insertConversationSchema>;

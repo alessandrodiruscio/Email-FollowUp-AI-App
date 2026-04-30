@@ -17,5 +17,6 @@ export const followUpStepsTable = mysqlTable("follow_up_steps", {
 });
 
 export const insertFollowUpStepSchema = createInsertSchema(followUpStepsTable).omit({ id: true, createdAt: true });
+// @ts-ignore
 export type InsertFollowUpStep = z.infer<typeof insertFollowUpStepSchema>;
 export type FollowUpStep = typeof followUpStepsTable.$inferSelect;

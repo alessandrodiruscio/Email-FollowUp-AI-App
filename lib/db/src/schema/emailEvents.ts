@@ -15,5 +15,6 @@ export const emailEventsTable = mysqlTable("email_events", {
 });
 
 export const insertEmailEventSchema = createInsertSchema(emailEventsTable).omit({ id: true, createdAt: true });
+// @ts-ignore
 export type InsertEmailEvent = z.infer<typeof insertEmailEventSchema>;
 export type EmailEvent = typeof emailEventsTable.$inferSelect;

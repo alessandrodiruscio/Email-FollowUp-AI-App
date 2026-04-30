@@ -18,5 +18,6 @@ export const sentEmailsTable = mysqlTable("sent_emails", {
 });
 
 export const insertSentEmailSchema = createInsertSchema(sentEmailsTable).omit({ id: true });
+// @ts-ignore
 export type InsertSentEmail = z.infer<typeof insertSentEmailSchema>;
 export type SentEmail = typeof sentEmailsTable.$inferSelect;

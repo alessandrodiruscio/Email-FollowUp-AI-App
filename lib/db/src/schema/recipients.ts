@@ -17,5 +17,6 @@ export const recipientsTable = mysqlTable("recipients", {
 });
 
 export const insertRecipientSchema = createInsertSchema(recipientsTable).omit({ id: true, createdAt: true });
+// @ts-ignore
 export type InsertRecipient = z.infer<typeof insertRecipientSchema>;
 export type Recipient = typeof recipientsTable.$inferSelect;

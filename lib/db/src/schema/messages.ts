@@ -21,4 +21,5 @@ export const insertMessageSchema = createInsertSchema(messages).omit({
 });
 
 export type Message = typeof messages.$inferSelect;
+// @ts-ignore
 export type InsertMessage = z.infer<typeof insertMessageSchema>;

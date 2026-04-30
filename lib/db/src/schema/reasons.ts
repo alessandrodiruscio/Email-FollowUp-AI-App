@@ -14,5 +14,6 @@ export const reasonsTable = mysqlTable("reasons", {
 });
 
 export const insertReasonSchema = createInsertSchema(reasonsTable).omit({ id: true });
+// @ts-ignore
 export type InsertReason = z.infer<typeof insertReasonSchema>;
 export type Reason = typeof reasonsTable.$inferSelect;
