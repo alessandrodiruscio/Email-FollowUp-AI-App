@@ -110,24 +110,23 @@ async function main() {
       return res.status(404).json({ error: "API endpoint not found" });
     });
 
-    // SPA fallback - Use middleware instead of app.get to avoid path-to-regexp issues
+    // SPA fallback - Safe catch-all for SPAs that avoids path-to-regexp issues
     app.use((req, res, next) => {
-      // Ignore API routes (should be handled above anyway)
+      // 1. Skip API calls
       if (req.path.startsWith("/api")) return next();
       
-      // If it looks like a static asset (has extension) but wasn't served by express.static, 404
+      // 2. Skip files with extensions (static assets)
       if (req.path.includes(".") && !req.path.endsWith(".html")) {
-        return res.status(404).send("Not found");
+        return next();
       }
       
+      // 3. Serve index.html for everything else (SPA)
       const indexPath = path.resolve(distPath, "index.html");
       if (fs.existsSync(indexPath)) {
         return res.sendFile(indexPath);
-      } else {
-        // Log this failure as it's a common issue on Vercel/Docker
-        console.error(`[server] SPA fallback: index.html not found at ${indexPath}`);
-        return res.status(404).send(`Frontend not found in: ${indexPath}`);
       }
+      
+      next();
     });
   }
 

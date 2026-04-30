@@ -1,7 +1,7 @@
-import { db, connectionError, campaignsTable, recipientsTable, followUpStepsTable, sentEmailsTable } from "../../../../lib/db/src/index.js";
+import { db, connectionError, campaignsTable, recipientsTable, followUpStepsTable, sentEmailsTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
-import { sendEmail } from "./sendEmail.js";
-import { substituteVariables } from "./variableSubstitution.js";
+import { sendEmail } from "./sendEmail";
+import { substituteVariables } from "./variableSubstitution";
 
 async function processFollowUps() {
   try {

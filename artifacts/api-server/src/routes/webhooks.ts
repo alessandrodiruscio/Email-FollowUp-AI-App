@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, sentEmailsTable, emailEventsTable, recipientsTable, webhookLogsTable } from "../../../../lib/db/src/index";
+import { db, sentEmailsTable, emailEventsTable, recipientsTable, webhookLogsTable } from "@workspace/db";
 import { eq, desc, and, sql } from "drizzle-orm";
 
 const router = Router();
@@ -11,7 +11,11 @@ router.post("/test", (req, res) => {
 });
 
 // Universal handler for webhooks
-router.all(["/", "/resend", "/resend/"], (req, res) => {
+router.all("/", (req, res) => handleWebhook(req, res));
+router.all("/resend", (req, res) => handleWebhook(req, res));
+router.all("/resend/", (req, res) => handleWebhook(req, res));
+
+async function handleWebhook(req: any, res: any) {
   const fullPath = req.baseUrl + req.url;
   console.log(`[webhook-router] Incoming! Method: ${req.method} | Path: ${fullPath} | Host: ${req.headers.host}`);
   
@@ -164,6 +168,6 @@ router.all(["/", "/resend", "/resend/"], (req, res) => {
 
   // Handle other methods
   return res.status(405).json({ error: "Method not allowed" });
-});
+}
 
 export default router;

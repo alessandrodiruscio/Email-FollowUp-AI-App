@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, campaignsTable, recipientsTable, followUpStepsTable, sentEmailsTable, emailEventsTable, reasonsTable, reasonFollowUpTemplatesTable } from "../../../../lib/db/src/index.js";
+import { db, campaignsTable, recipientsTable, followUpStepsTable, sentEmailsTable, emailEventsTable, reasonsTable, reasonFollowUpTemplatesTable } from "@workspace/db";
 import { eq, count, and, sql, isNotNull } from "drizzle-orm";
 import {
   CreateCampaignBody,
@@ -22,9 +22,9 @@ import {
   UpdateFollowUpStepParams,
   UpdateFollowUpStepBody,
   DeleteFollowUpStepParams,
-} from "../../../../lib/api-zod/src/index.js";
-import { sendEmail, getResendCredentials } from "../lib/sendEmail.js";
-import { substituteVariables } from "../lib/variableSubstitution.js";
+} from "@workspace/api-zod";
+import { sendEmail, getResendCredentials } from "../lib/sendEmail";
+import { substituteVariables } from "../lib/variableSubstitution";
 
 const router: IRouter = Router();
 

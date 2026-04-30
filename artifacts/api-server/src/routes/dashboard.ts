@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
-import { db, campaignsTable, recipientsTable, sentEmailsTable, emailEventsTable, webhookLogsTable } from "../../../../lib/db/src/index.js";
+import { db, campaignsTable, recipientsTable, sentEmailsTable, emailEventsTable, webhookLogsTable } from "@workspace/db";
 import { eq, count, and, sql, gte, isNotNull, inArray, desc } from "drizzle-orm";
-import { getResendCredentials } from "../lib/sendEmail.js";
+import { getResendCredentials } from "../lib/sendEmail";
 import { Resend } from "resend";
 
 const router: IRouter = Router();

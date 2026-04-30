@@ -46,6 +46,7 @@ async function buildAll() {
       "drizzle-orm/*",
       "drizzle-zod", 
       "express", 
+      "path-to-regexp",
       "mysql2", 
       "mysql2/*",
       "openai", 

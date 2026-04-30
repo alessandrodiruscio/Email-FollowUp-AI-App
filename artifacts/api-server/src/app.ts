@@ -1,7 +1,7 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import { db, connectionError } from "../../../lib/db/src/index";
+import { db, connectionError } from "@workspace/db";
 import router from "./routes/index";
 import webhooksRouter from "./routes/webhooks";
 import initRouter from "./routes/init";
@@ -23,8 +23,6 @@ app.get("/public-health-check", (req, res) => {
   return res.status(200).send("OK-SERVER-IS-UP");
 });
 
-app.set('strict routing', false);
-
 // 0. LOGGING
 app.use((req, res, next) => {
   console.log(`[HTTP-IN] ${req.method} ${req.url} (Host: ${req.headers.host})`);
@@ -36,7 +34,10 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // 1. DIRECT ROUTES (Highest Priority)
-app.all(["/p", "/ping", "/ping-public", "/api/ping-public"], (req, res) => {
+app.all("/p", (req, res) => {
+  return res.json({ status: "ok" });
+});
+app.all("/ping", (req, res) => {
   console.log(`[HEALTH-CHECK] Hit! Method: ${req.method} | Path: ${req.path} | Original: ${req.originalUrl} | Host: ${req.headers.host}`);
   return res.json({ 
     status: "ok", 
@@ -44,6 +45,12 @@ app.all(["/p", "/ping", "/ping-public", "/api/ping-public"], (req, res) => {
     time: new Date().toISOString(), 
     auth: !!req.headers.authorization
   });
+});
+app.all("/ping-public", (req, res) => {
+  return res.json({ status: "ok" });
+});
+app.all("/api/ping-public", (req, res) => {
+  return res.json({ status: "ok" });
 });
 
 // 2. WEBHOOKS MOUNTING

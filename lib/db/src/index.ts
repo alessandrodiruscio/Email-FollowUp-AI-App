@@ -48,12 +48,17 @@ if (!process.env.DATABASE_URL) {
     // Log connection details for debugging
     console.log("[db] Connecting to:", dbUrl.hostname);
     
+    const database = dbUrl.pathname.slice(1);
+    if (!database) {
+      console.warn("[db] No database name found in DATABASE_URL pathname. Using default.");
+    }
+    
     const config = {
       host: dbUrl.hostname,
       port: parseInt(dbUrl.port || "3306", 10),
       user: dbUrl.username,
       password: dbUrl.password,
-      database: dbUrl.pathname.slice(1),
+      database: database || undefined,
       waitForConnections: true,
       connectionLimit: 10,
       queueLimit: 0,

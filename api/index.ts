@@ -1,4 +1,4 @@
-import app from "../artifacts/api-server/src/app.js";
+import app from "../artifacts/api-server/src/app";
 
 console.log("[vercel-api] Initializing API entry point");
 
