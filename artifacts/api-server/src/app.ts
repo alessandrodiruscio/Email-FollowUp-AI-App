@@ -8,6 +8,23 @@ import router from "./routes/index.js";
 import webhooksRouter from "./routes/webhooks.js";
 import initRouter from "./routes/init.js";
 
+// Try several potential locations for dist/public relative to process.cwd()
+const rootPath = process.cwd();
+const potentialDistPaths = [
+  path.resolve(rootPath, "public"),
+  path.resolve(rootPath, "dist/public"),
+  path.resolve(rootPath, "artifacts/api-server/dist/public"),
+  path.resolve(rootPath, "artifacts/email-followup/dist/public"),
+];
+
+let distPath = potentialDistPaths[0];
+for (const p of potentialDistPaths) {
+  if (fs.existsSync(p)) {
+    distPath = p;
+    break;
+  }
+}
+
 const app: Express = express();
 
 // 0. CORS and BASIC MIDDLEWARE
@@ -107,6 +124,15 @@ app.get("/health", (req, res) => {
   return res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+app.get("/", (req, res) => {
+  const indexPath = path.resolve(distPath, "index.html");
+  console.log(`[app] GET / -> attempting to serve ${indexPath}`);
+  if (fs.existsSync(indexPath)) {
+    return res.sendFile(indexPath);
+  }
+  res.status(404).send(`Cannot find index.html at ${indexPath}. Current directory: ${process.cwd()}. Files: ${fs.readdirSync(process.cwd()).join(', ')}`);
+});
+
 app.get("/api/env-check", (req, res) => {
   return res.json({ 
     cwd: process.cwd(),
@@ -125,28 +151,9 @@ app.get("/api/ping", (req, res) => {
 app.use("/api", router);
 app.use("/api", initRouter);
 
-// 3. STATIC FILES & SPA FALLBACK (After API routes)
-const isProd = process.env.NODE_ENV === "production";
-const rootPath = process.cwd();
-
-// Try several potential locations for dist/public relative to process.cwd()
-const potentialDistPaths = [
-  path.resolve(rootPath, "public"),
-  path.resolve(rootPath, "dist/public"),
-  path.resolve(rootPath, "artifacts/api-server/dist/public"),
-  path.resolve(rootPath, "artifacts/email-followup/dist/public"),
-];
-
-let distPath = potentialDistPaths[0];
-for (const p of potentialDistPaths) {
-  if (fs.existsSync(p)) {
-    distPath = p;
-    break;
-  }
-}
-
-// 138: STATIC FILES & SPA FALLBACK (After API routes)
-console.log(`[app] Attempting to serve static from ${distPath}`);
+// 148: STATIC FILES & SPA FALLBACK (After API routes)
+console.log(`[app] Final selected distPath: ${distPath}`);
+console.log(`[app] distPath exists: ${fs.existsSync(distPath)}`);
 
 // Serve static files from distPath
 app.use(express.static(distPath));
