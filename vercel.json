@@ -2,6 +2,11 @@
   "version": 2,
   "cleanUrls": true,
   "trailingSlash": false,
+  "functions": {
+    "api/index.ts": {
+      "includeFiles": "public/**"
+    }
+  },
   "rewrites": [
     {
       "source": "/api/:path*",
@@ -21,7 +26,7 @@
     },
     {
       "source": "/((?!api|health|ping|reasons).*)",
-      "destination": "/index.html"
+      "destination": "/api/index.ts"
     }
   ]
 }

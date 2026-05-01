@@ -15,13 +15,21 @@ const potentialDistPaths = [
   path.resolve(rootPath, "dist/public"),
   path.resolve(rootPath, "artifacts/api-server/dist/public"),
   path.resolve(rootPath, "artifacts/email-followup/dist/public"),
+  path.resolve(rootPath), // root as fallback
 ];
 
 let distPath = potentialDistPaths[0];
 for (const p of potentialDistPaths) {
-  if (fs.existsSync(p)) {
-    distPath = p;
-    break;
+  try {
+    if (fs.existsSync(p) && fs.statSync(p).isDirectory()) {
+      // Check if there's at least an index.html or some assets
+      if (fs.existsSync(path.join(p, "index.html")) || fs.existsSync(path.join(p, "assets"))) {
+        distPath = p;
+        break;
+      }
+    }
+  } catch (e) {
+    // ignore
   }
 }
 
