@@ -1,5 +1,6 @@
 {
-  "name": "FollowUp AI",
+  "name": "Email FollowUp AI",
   "description": "Smart outreach automation platform to manage email campaigns, follow-ups, and AI-powered email generation.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": []
 }

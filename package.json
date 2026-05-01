@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "BASE_PATH=/ tsx artifacts/api-server/src/index.ts",
     "start": "node dist/index.cjs",
-    "build": "BASE_PATH=/ PORT=3000 npm run build --workspaces --if-present && mkdir -p public && cp -r artifacts/email-followup/dist/public/* public/ && cp -r artifacts/email-followup/dist/public/* . && cp artifacts/api-server/dist/index.cjs dist/index.cjs",
+    "build": "BASE_PATH=/ PORT=3000 npm run build --workspaces --if-present && mkdir -p public dist && cp -r artifacts/email-followup/dist/public/* public/ && cp artifacts/api-server/dist/index.cjs dist/index.cjs",
     "lint": "eslint . --ext .ts,.tsx",
     "typecheck:libs": "tsc --build",
     "typecheck": "npm run typecheck:libs && npm run typecheck --workspaces --if-present"
