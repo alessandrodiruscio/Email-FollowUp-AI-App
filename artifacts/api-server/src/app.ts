@@ -130,7 +130,16 @@ app.get("/", (req, res) => {
   if (fs.existsSync(indexPath)) {
     return res.sendFile(indexPath);
   }
-  res.status(404).send(`Cannot find index.html at ${indexPath}. Current directory: ${process.cwd()}. Files: ${fs.readdirSync(process.cwd()).join(', ')}`);
+  // Try fallback to root if distPath didn't work (Vercel quirks)
+  const fallbackPath = path.resolve(process.cwd(), "index.html");
+  if (fs.existsSync(fallbackPath)) {
+    return res.sendFile(fallbackPath);
+  }
+  res.status(404).send(`Cannot find index.html at ${indexPath} or ${fallbackPath}. Current directory: ${process.cwd()}. Files: ${fs.readdirSync(process.cwd()).join(', ')}`);
+});
+
+app.get("/api", (req, res) => {
+  return res.json({ status: "ok", message: "FollowUp AI API Service", version: "1.0.0" });
 });
 
 app.get("/api/env-check", (req, res) => {

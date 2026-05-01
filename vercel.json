@@ -20,7 +20,7 @@
       "destination": "/api/index.ts"
     },
     {
-      "source": "/((?!api/|health|ping|reasons).*)",
+      "source": "/((?!api|health|ping|reasons).*)",
       "destination": "/index.html"
     }
   ]
