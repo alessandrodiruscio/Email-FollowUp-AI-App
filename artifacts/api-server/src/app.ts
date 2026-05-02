@@ -181,6 +181,18 @@ app.get("/api/ping", (req, res) => {
 app.use("/api", router);
 app.use("/api", initRouter);
 
+// Fallback for Vercel and production deployment
+if (fs.existsSync(distPath)) {
+  console.log(`[app] Serving static from ${distPath}`);
+  app.use(express.static(distPath));
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+    if (req.path.startsWith("/api") || req.path.startsWith("/health") || req.path.startsWith("/ping") || req.path.startsWith("/w") || req.path.startsWith("/webhook")) return next();
+    if (req.path.includes(".")) return next();
+    res.sendFile(path.join(distPath, "index.html"));
+  });
+}
+
 // Database readiness check for API routes
 app.use("/api", (req: Request, res: Response, next: NextFunction) => {
   if (!db) {
