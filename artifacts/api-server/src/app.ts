@@ -8,22 +8,26 @@ import router from "./routes/index.js";
 import webhooksRouter from "./routes/webhooks.js";
 import initRouter from "./routes/init.js";
 
-// Try several potential locations for dist/public relative to process.cwd()
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const rootPath = process.cwd();
+console.log(`[app] Runtime context: cwd=${rootPath}, dirname=${__dirname}`);
+
 const potentialDistPaths = [
-  path.resolve(rootPath, "public"),
   path.resolve(rootPath, "dist/public"),
-  path.resolve(rootPath, "artifacts/api-server/dist/public"),
-  path.resolve(rootPath, "artifacts/email-followup/dist/public"),
-  path.resolve(rootPath), // root as fallback
+  path.resolve(rootPath, "public"),
+  path.resolve(rootPath), 
 ];
 
 let distPath = potentialDistPaths[0];
 for (const p of potentialDistPaths) {
   try {
     if (fs.existsSync(p) && fs.statSync(p).isDirectory()) {
-      // Check if there's at least an index.html or some assets
-      if (fs.existsSync(path.join(p, "index.html")) || fs.existsSync(path.join(p, "assets"))) {
+      const children = fs.readdirSync(p);
+      if (children.includes("index.html") || children.includes("assets")) {
         distPath = p;
         break;
       }
@@ -35,6 +39,17 @@ for (const p of potentialDistPaths) {
 
 const app: Express = express();
 
+// ABSOLUTE HIGHEST PRIORITY PING
+app.all("/__server_ping", (req, res) => {
+  console.log(`[PING-INTERNAL] Hit from ${req.headers.host}`);
+  res.status(200).send("PONG-FROM-SERVER");
+});
+
+// ROOT HANDLER FOR CONNECTIVITY TEST
+app.get("/_test_root", (req, res) => {
+  res.status(200).send("ROOT-REACHABLE");
+});
+
 // 0. CORS and BASIC MIDDLEWARE
 // Enable CORS for all origins to ensure cross-app testing works
 app.use(cors({
@@ -43,6 +58,22 @@ app.use(cors({
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
 }) as any);
+
+// ABSOLUTE PRIORITY LOGGING FOR DEBUGGING
+app.use((req, res, next) => {
+  console.log(`[REQ-START] ${req.method} ${req.url} (Host: ${req.headers.host}, UA: ${req.headers['user-agent']?.substring(0, 50)})`);
+  
+  // Track long-running requests
+  const timer = setTimeout(() => {
+    console.warn(`[REQ-STALL] Request ${req.method} ${req.url} has been pending for over 5s`);
+  }, 5000);
+
+  res.on('finish', () => {
+    clearTimeout(timer);
+    console.log(`[REQ-END] ${req.method} ${req.url} -> ${res.statusCode}`);
+  });
+  next();
+});
 
 // ABSOLUTE PRIORITY HEALTH CHECK
 app.get("/public-health-check", (req, res) => {
@@ -112,14 +143,13 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   const start = Date.now();
   const requestId = Math.random().toString(36).substring(7);
   
-  if (req.method === "POST" || req.path.includes("webhook")) {
+  if (req.method === "POST" || (req.path && req.path.includes("webhook"))) {
     console.log(`[REQ-${requestId}] ${req.method} ${req.originalUrl} from ${req.ip}`);
-    console.log(`[REQ-${requestId}] Headers: ${JSON.stringify(req.headers)}`);
   }
   
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (req.method === "POST" || req.path.includes("webhook")) {
+    if (req.method === "POST" || (req.path && req.path.includes("webhook"))) {
       console.log(`[REQ-${requestId}] ${req.method} ${req.path} -> ${res.statusCode} (${duration}ms)`);
     }
   });
@@ -127,27 +157,9 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// Test health endpoint
+// Health check endpoint
 app.get("/health", (req, res) => {
   return res.json({ status: "ok", timestamp: new Date().toISOString() });
-});
-
-app.get("/", (req, res) => {
-  const indexPath = path.resolve(distPath, "index.html");
-  console.log(`[app] GET / -> attempting to serve ${indexPath}`);
-  if (fs.existsSync(indexPath)) {
-    return res.sendFile(indexPath);
-  }
-  // Try fallback to root if distPath didn't work (Vercel quirks)
-  const fallbackPath = path.resolve(process.cwd(), "index.html");
-  if (fs.existsSync(fallbackPath)) {
-    return res.sendFile(fallbackPath);
-  }
-  res.status(404).send(`Cannot find index.html at ${indexPath} or ${fallbackPath}. Current directory: ${process.cwd()}. Files: ${fs.readdirSync(process.cwd()).join(', ')}`);
-});
-
-app.get("/api", (req, res) => {
-  return res.json({ status: "ok", message: "FollowUp AI API Service", version: "1.0.0" });
 });
 
 app.get("/api/env-check", (req, res) => {
@@ -156,7 +168,8 @@ app.get("/api/env-check", (req, res) => {
     nodeEnv: process.env.NODE_ENV,
     distPath,
     exists: fs.existsSync(distPath),
-    indexExists: fs.existsSync(path.join(distPath, "index.html"))
+    indexExists: fs.existsSync(path.join(distPath, "index.html")),
+    __dirname: __dirname
   });
 });
 
@@ -168,33 +181,15 @@ app.get("/api/ping", (req, res) => {
 app.use("/api", router);
 app.use("/api", initRouter);
 
-// 148: STATIC FILES & SPA FALLBACK (After API routes)
-console.log(`[app] Final selected distPath: ${distPath}`);
-console.log(`[app] distPath exists: ${fs.existsSync(distPath)}`);
-
-// Serve static files from distPath
-app.use(express.static(distPath));
-
-// SPA fallback - Catch-all for frontend routes
-app.use((req: Request, res: Response, next: NextFunction) => {
-  // 1. Skip API calls
-  if (req.path.startsWith("/api") || req.path.startsWith("/health") || req.path.startsWith("/reasons") || req.path.startsWith("/ping")) {
-    return next();
+// Database readiness check for API routes
+app.use("/api", (req: Request, res: Response, next: NextFunction) => {
+  if (!db) {
+    res.status(503).json({
+      error: "Database not initialized",
+      message: connectionError?.message || "DATABASE_URL is missing. Please set it in the Secrets panel."
+    });
+    return;
   }
-  
-  // 2. Skip files with extensions
-  if (req.path.includes(".") && !req.path.endsWith(".html")) {
-    return next();
-  }
-  
-  // 3. Serve index.html for everything else
-  const indexPath = path.resolve(distPath, "index.html");
-  if (fs.existsSync(indexPath)) {
-    return res.sendFile(indexPath);
-  } else {
-    console.warn(`[app] SPA fallback: index.html not found at ${indexPath}`);
-  }
-  
   next();
 });
 
