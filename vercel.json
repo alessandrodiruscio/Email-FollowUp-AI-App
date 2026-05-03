@@ -4,28 +4,12 @@
   "trailingSlash": false,
   "functions": {
     "api/index.ts": {
-      "includeFiles": "dist/public/**"
+      "includeFiles": "public/**"
     }
   },
   "rewrites": [
     {
-      "source": "/api/:path*",
-      "destination": "/api/index.ts"
-    },
-    {
-      "source": "/health:path*",
-      "destination": "/api/index.ts"
-    },
-    {
-      "source": "/ping:path*",
-      "destination": "/api/index.ts"
-    },
-    {
-      "source": "/reasons:path*",
-      "destination": "/api/index.ts"
-    },
-    {
-      "source": "/((?!api|health|ping|reasons).*)",
+      "source": "/(.*)",
       "destination": "/api/index.ts"
     }
   ]
