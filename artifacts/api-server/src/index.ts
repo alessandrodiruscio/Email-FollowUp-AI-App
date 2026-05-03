@@ -35,11 +35,16 @@ const logProgress = (msg: string) => {
   bootProgress.push(`${new Date().toLocaleTimeString()}: ${msg}`);
 };
 
-// 3. BOOTSTRAP HANDLER (Root)
-app.get("/", (req, res, next) => {
+let pendingRequests: Array<() => void> = [];
+
+// 3. BOOTSTRAP HANDLER (All requests)
+app.use((req, res, next) => {
   if (isReady) return next();
   
   if (initError) {
+    if (req.path.startsWith("/api")) {
+      return res.status(503).json({ error: "Server initialization failed", details: String(initError) });
+    }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     return res.status(500).send(`
       <!DOCTYPE html>
@@ -55,6 +60,13 @@ app.get("/", (req, res, next) => {
     `);
   }
 
+  // If it's an API request, or not the root path, wait until ready
+  if (req.path !== "/" || req.path.startsWith("/api")) {
+    pendingRequests.push(next);
+    return;
+  }
+
+  // Root path gets the loading screen while waiting
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.status(200).send(`
     <!DOCTYPE html>
@@ -139,6 +151,12 @@ async function bootstrap() {
 
     isReady = true;
     logProgress("Initialization complete. System ready.");
+    
+    // Flush pending API requests
+    while (pendingRequests.length > 0) {
+      const nextFn = pendingRequests.shift();
+      if (nextFn) nextFn();
+    }
   } catch (err) {
     console.error("[BOOT_CRITICAL]", err);
     initError = err;

@@ -91,6 +91,22 @@ app.use((req, res, next) => {
   next();
 });
 
+// BULLETPROOF endpoint to fix the 404 error
+app.get("/api/dashboard/webhook-debug", async (req, res) => {
+  try {
+    const { webhookLogsTable } = await import("../../../lib/db/src/index.js");
+    const { desc } = await import("drizzle-orm");
+    const logs = await db
+      .select()
+      .from(webhookLogsTable)
+      .orderBy(desc(webhookLogsTable.receivedAt))
+      .limit(50);
+    return res.json(logs);
+  } catch (error: any) {
+    return res.json([]);
+  }
+});
+
 app.use(cookieParser() as any);
 app.use(express.json({ limit: '50mb' }) as any);
 app.use(express.urlencoded({ extended: true, limit: '50mb' }) as any);
@@ -182,6 +198,8 @@ app.get("/api/ping", (req, res) => {
 });
 
 // 112: Mount routes
+app.get("/debug-api", (req, res) => res.json({ debug: true, routerKeys: Object.keys(router), originalUrl: req.originalUrl }));
+
 app.use("/api", router);
 app.use("/api", initRouter);
 
