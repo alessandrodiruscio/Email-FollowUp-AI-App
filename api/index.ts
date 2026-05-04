@@ -7,7 +7,7 @@ export default async (req: any, res: any) => {
     let tree = {};
     try {
       const readDir = (dir: string, depth = 0): any => {
-        if (depth > 2) return "...";
+        if (depth > 3) return "...";
         try {
           const files = fs.readdirSync(dir);
           const result: any = {};
@@ -17,7 +17,7 @@ export default async (req: any, res: any) => {
             if (fs.statSync(p).isDirectory()) {
               result[f] = readDir(p, depth + 1);
             } else {
-              result[f] = "file";
+              result[f] = fs.statSync(p).size;
             }
           }
           return result;

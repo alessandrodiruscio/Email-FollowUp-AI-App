@@ -56,7 +56,7 @@ function WeeklyView({ currentDate, events, getEventsForDate }: any) {
 
               {dayEvents.length > 0 ? (
                 <div className="flex-1 space-y-3 overflow-y-auto">
-                  {dayEvents.map((event, i) => (
+                  {dayEvents.map((event: any, i: any) => (
                     <Link
                       key={i}
                       href={`/campaigns/${event.campaignId}`}

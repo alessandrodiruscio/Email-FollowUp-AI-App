@@ -28,14 +28,14 @@ app.get("/ping", (req, res) => res.status(200).send("PONG"));
 
 let isReady = false;
 let initError: any = null;
-let bootProgress: string[] = ["Server starting..."];
+const bootProgress: string[] = ["Server starting..."];
 
 const logProgress = (msg: string) => {
   console.log(`[BOOT] ${msg}`);
   bootProgress.push(`${new Date().toLocaleTimeString()}: ${msg}`);
 };
 
-let pendingRequests: Array<() => void> = [];
+const pendingRequests: Array<() => void> = [];
 
 // 3. BOOTSTRAP HANDLER (All requests)
 app.use((req, res, next) => {

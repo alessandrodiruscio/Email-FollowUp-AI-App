@@ -12,16 +12,13 @@ import notificationsRouter from "./routes/notifications.js";
 
 import { fileURLToPath } from "url";
 
-let _filename = "";
 let _dirname = "";
 try {
-  _filename = fileURLToPath(import.meta.url);
-  _dirname = path.dirname(_filename);
+  _dirname = path.dirname(fileURLToPath(import.meta.url));
 } catch (e) {
-  // @ts-ignore
-  _filename = __filename;
-  // @ts-ignore
-  _dirname = __dirname;
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore - __dirname is available in CJS
+  _dirname = typeof __dirname !== 'undefined' ? __dirname : "";
 }
 
 const rootPath = process.cwd();
