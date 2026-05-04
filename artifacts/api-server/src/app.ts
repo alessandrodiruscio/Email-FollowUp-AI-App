@@ -12,19 +12,28 @@ import notificationsRouter from "./routes/notifications.js";
 
 import { fileURLToPath } from "url";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+let _filename = "";
+let _dirname = "";
+try {
+  _filename = fileURLToPath(import.meta.url);
+  _dirname = path.dirname(_filename);
+} catch (e) {
+  // @ts-ignore
+  _filename = __filename;
+  // @ts-ignore
+  _dirname = __dirname;
+}
 
 const rootPath = process.cwd();
-console.log(`[app] Runtime context: cwd=${rootPath}, dirname=${__dirname}`);
+console.log(`[app] Runtime context: cwd=${rootPath}, dirname=${_dirname}`);
 
 const potentialDistPaths = [
   path.resolve(rootPath, "dist/public"),
   path.resolve(rootPath, "public"),
   path.resolve(rootPath), 
-  path.resolve(__dirname, "../../../dist/public"), // UP FROM artifacts/api-server/src
-  path.resolve(__dirname, "../../../../dist/public"), // UP FROM api/index.ts if it was there
-  path.resolve(__dirname, "../dist/public"),
+  path.resolve(_dirname, "../../../dist/public"), // UP FROM artifacts/api-server/src
+  path.resolve(_dirname, "../../../../dist/public"), // UP FROM api/index.ts if it was there
+  path.resolve(_dirname, "../dist/public"),
   path.resolve(rootPath, "api/dist/public"),
 ];
 

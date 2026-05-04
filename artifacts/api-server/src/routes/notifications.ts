@@ -15,7 +15,7 @@ db.execute(sql`
     \`read\` BOOLEAN NOT NULL DEFAULT FALSE,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
   )
-`).catch(err => {
+`).catch((err: unknown) => {
   console.error("[notifications] Failed to ensure notifications table exists on boot:", err);
 });
 
