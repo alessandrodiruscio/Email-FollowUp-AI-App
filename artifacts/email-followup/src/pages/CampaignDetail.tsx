@@ -84,6 +84,7 @@ type Recipient = {
   id: number;
   name: string;
   email: string;
+  company?: string | null;
   replied: boolean;
   repliedAt: Date | string | null;
   initialSentAt: Date | string | null;
@@ -185,6 +186,22 @@ function RecipientTimeline({ recipient, followUpSteps }: { recipient: Recipient;
           const isPending = !wasSent && !recipient.replied && !!recipient.initialSentAt;
           const notStarted = !wasSent && !recipient.replied && !recipient.initialSentAt;
 
+          let expectedSendDateStr = "";
+          if (isPending && recipient.initialSentAt) {
+            let cumulativeMs = 0;
+            const sortedSteps = [...followUpSteps].sort((a, b) => a.stepNumber - b.stepNumber);
+            for (const s of sortedSteps) {
+              if (s.stepNumber > step.stepNumber) continue;
+              let ms = 0;
+              if (s.delayUnit === "minutes") ms = s.delayValue * 60 * 1000;
+              else if (s.delayUnit === "hours") ms = s.delayValue * 60 * 60 * 1000;
+              else if (s.delayUnit === "days") ms = s.delayValue * 24 * 60 * 60 * 1000;
+              cumulativeMs += ms;
+            }
+            const expectedDate = new Date(new Date(recipient.initialSentAt).getTime() + cumulativeMs);
+            expectedSendDateStr = formatDate(expectedDate.toISOString());
+          }
+
           if (notStarted) {
             return (
               <Tooltip key={step.id}>
@@ -268,7 +285,7 @@ function RecipientTimeline({ recipient, followUpSteps }: { recipient: Recipient;
                 <TooltipContent className="p-3">
                   <p className="font-bold text-xs border-b pb-1 mb-1">Follow-up {step.stepNumber}</p>
                   <p className="text-[10px] font-medium text-amber-600">Pending</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">Scheduled {step.delayValue} {step.delayUnit} after previous</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">Scheduled for: <span className="font-bold text-foreground">{expectedSendDateStr}</span></p>
                 </TooltipContent>
               </Tooltip>
             );
@@ -819,6 +836,20 @@ export default function CampaignDetail() {
             <p className="text-muted-foreground mt-1 flex items-center gap-2 text-sm">
               <Mail className="w-4 h-4" /> {campaign.fromName} &lt;{campaign.fromEmail}&gt;
             </p>
+            {campaign.recipients && campaign.recipients.length > 0 && (
+              <div className="mt-3 flex flex-col gap-1.5 bg-muted/30 border border-border/50 rounded-lg p-3">
+                <span className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Recipients ({campaign.recipients.length})</span>
+                <div className="max-h-32 overflow-y-auto space-y-1.5 pr-2">
+                  {campaign.recipients.map((r: Recipient) => (
+                    <div key={r.id} className="flex flex-wrap items-center gap-2 text-sm">
+                      <span className="font-medium text-foreground">{r.name}</span>
+                      <span className="text-muted-foreground">&lt;{r.email}&gt;</span>
+                      {r.company && <Badge variant="secondary" className="px-1.5 py-0 text-[10px] font-semibold">{r.company}</Badge>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
         

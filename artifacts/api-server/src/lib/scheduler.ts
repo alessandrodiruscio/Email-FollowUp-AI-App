@@ -1,7 +1,73 @@
-import { db, connectionError, campaignsTable, recipientsTable, followUpStepsTable, sentEmailsTable } from "../../../../lib/db/src/index.js";
+import { db, connectionError, campaignsTable, recipientsTable, followUpStepsTable, sentEmailsTable, notificationsTable } from "../../../../lib/db/src/index.js";
 import { eq, and, sql } from "drizzle-orm";
 import { sendEmail } from "./sendEmail.js";
 import { substituteVariables } from "./variableSubstitution.js";
+import { shouldCampaignBeCompleted, getCampaignCounts, getCampaignClickers } from "../routes/campaigns.js";
+
+async function checkCompletedCampaigns() {
+  if (!db || connectionError) return;
+
+  try {
+    const activeCampaigns = await db.select().from(campaignsTable).where(eq(campaignsTable.status, "active"));
+    
+    for (const campaign of activeCampaigns) {
+      const isCompleted = await shouldCampaignBeCompleted(campaign.id);
+      
+      if (isCompleted) {
+        // Mark as completed
+        await db.update(campaignsTable).set({ status: "completed", updatedAt: new Date() }).where(eq(campaignsTable.id, campaign.id));
+        
+        // Get counts
+        const counts = await getCampaignCounts(campaign.id);
+        
+        // At least two clicks requirement
+        if (counts.clickedCount >= 2) {
+          console.log(`[scheduler] Campaign ${campaign.id} completed with >= 2 clicks. Sending notifications.`);
+          
+          try {
+            await db.execute(sql`
+              CREATE TABLE IF NOT EXISTS notifications (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                campaign_id INT,
+                title TEXT NOT NULL,
+                message TEXT NOT NULL,
+                \`read\` BOOLEAN NOT NULL DEFAULT FALSE,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+              )
+            `);
+          } catch (e) {
+            console.error("[scheduler] Error ensuring notifications table exists:", e);
+          }
+          
+          const clickers = await getCampaignClickers(campaign.id);
+          const clickersStr = clickers.map(c => `${c.name} (${c.email})`).join(", ");
+
+          // 1. Notify inside the app
+          await db.insert(notificationsTable).values({
+            campaignId: campaign.id,
+            title: `Campaign "${campaign.name}" Finished!`,
+            message: `Your campaign has finished and received ${counts.clickedCount} clicks. Recipients who clicked: ${clickersStr || "None"}. Time to send an additional email!`
+          });
+          
+          // 2. Receive an email (send it to the user's fromEmail, or whatever email we know)
+          // The request doesn't specify which user, since the app doesn't have a users table, and sends via fromEmail
+          // We will notify the \`fromEmail\` used in the campaign.
+          await sendEmail({
+             to: campaign.fromEmail,
+             toName: campaign.fromName,
+             from: process.env.RESEND_FROM_EMAIL || "notifications@mail.com", // Usually you have a system email
+             fromName: "Email Followup App",
+             subject: `🎉 Campaign "${campaign.name}" has finished!`,
+             body: `Hello ${campaign.fromName},\n\nYour campaign "${campaign.name}" has officially finished sending all emails.\nIt received an impressive ${counts.clickedCount} clicks!\n\nRecipients who clicked: ${clickersStr || "None"}\n\nThis means it's a great time to reach out with an additional email to those recipients.\n\nBest,\nThe Team`,
+             htmlBody: `<p>Hello ${campaign.fromName},</p><p>Your campaign "<b>${campaign.name}</b>" has officially finished sending all emails.</p><p>It received an impressive <b>${counts.clickedCount}</b> clicks!</p><p>Recipients who clicked: <b>${clickersStr || "None"}</b></p><p>This means it's a great time to reach out with an additional email to those recipients.</p><p>Best,<br>The Team</p>`
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.error("[scheduler] Error checking completed campaigns:", err);
+  }
+}
 
 async function processFollowUps() {
   try {
@@ -181,5 +247,8 @@ export function startScheduler() {
   console.log("[scheduler] Follow-up scheduler started (interval: 60s)");
   // Don't call processFollowUps immediately on startup - let the pool initialize first
   // Initial error is typically due to startup race condition with database
-  setInterval(processFollowUps, INTERVAL_MS);
+  setInterval(async () => {
+    await processFollowUps();
+    await checkCompletedCampaigns();
+  }, INTERVAL_MS);
 }

@@ -28,7 +28,28 @@ import { substituteVariables } from "../lib/variableSubstitution.js";
 
 const router: IRouter = Router();
 
-async function getCampaignCounts(campaignId: number) {
+export async function getCampaignClickers(campaignId: number) {
+  const clickEvents = await db
+    .select({ name: recipientsTable.name, email: recipientsTable.email })
+    .from(emailEventsTable)
+    .innerJoin(sentEmailsTable, eq(emailEventsTable.sentEmailId, sentEmailsTable.id))
+    .innerJoin(recipientsTable, eq(sentEmailsTable.recipientId, recipientsTable.id))
+    .where(and(
+      eq(recipientsTable.campaignId, campaignId),
+      eq(emailEventsTable.eventType, "clicked")
+    ));
+
+  // Deduplicate
+  const uniqueClickers = new Map<string, {name: string, email: string}>();
+  for (const c of clickEvents) {
+    if (c.email) {
+      uniqueClickers.set(c.email, { name: c.name ?? "Unknown", email: c.email });
+    }
+  }
+  return Array.from(uniqueClickers.values());
+}
+
+export async function getCampaignCounts(campaignId: number) {
   const [recipients] = await db
     .select({ total: count() })
     .from(recipientsTable)
@@ -74,41 +95,64 @@ async function getCampaignCounts(campaignId: number) {
   };
 }
 
-async function shouldCampaignBeCompleted(campaignId: number): Promise<boolean> {
-  // Get the number of follow-up steps
-  const [followUpCount] = await db
-    .select({ count: count() })
-    .from(followUpStepsTable)
-    .where(eq(followUpStepsTable.campaignId, campaignId));
-  
-  const totalStepsPerRecipient = (followUpCount?.count ?? 0) + 1; // +1 for initial email
-  
-  // Get total recipients count
-  const [recipientsResult] = await db
-    .select({ count: count() })
+export async function shouldCampaignBeCompleted(campaignId: number): Promise<boolean> {
+  // Get all active (un-replied) recipients for this campaign
+  const recipients = await db
+    .select({ id: recipientsTable.id, initialSentAt: recipientsTable.initialSentAt })
     .from(recipientsTable)
-    .where(eq(recipientsTable.campaignId, campaignId));
-  
-  const recipientCount = recipientsResult?.count ?? 0;
-  if (recipientCount === 0) return false;
-  
-  // Get total sent emails count
-  const [sentResult] = await db
-    .select({ count: count() })
-    .from(sentEmailsTable)
-    .innerJoin(recipientsTable, eq(sentEmailsTable.recipientId, recipientsTable.id))
     .where(
       and(
         eq(recipientsTable.campaignId, campaignId),
-        eq(sentEmailsTable.status, "sent")
+        eq(recipientsTable.replied, false)
       )
     );
   
-  const totalSentEmails = sentResult?.count ?? 0;
-  const expectedTotalEmails = recipientCount * totalStepsPerRecipient;
+  if (recipients.length === 0) {
+    // If all recipients replied, or there are no recipients, is it completed? 
+    // Yes, unless there were literally 0 recipients to begin with.
+    // Let's check total recipient count
+    const [totalRecipients] = await db
+      .select({ count: count() })
+      .from(recipientsTable)
+      .where(eq(recipientsTable.campaignId, campaignId));
+    return (totalRecipients?.count ?? 0) > 0;
+  }
+
+  // Get the follow-up steps for this campaign
+  const followUpSteps = await db
+    .select({ id: followUpStepsTable.id })
+    .from(followUpStepsTable)
+    .where(eq(followUpStepsTable.campaignId, campaignId));
+
+  const totalSteps = followUpSteps.length;
+
+  for (const recipient of recipients) {
+    // If they haven't even received the initial email, not complete
+    if (!recipient.initialSentAt) return false;
+
+    if (totalSteps > 0) {
+      // For each step, verify the recipient received it
+      for (const step of followUpSteps) {
+        // We look for at least one successful sent email for this step
+        const [sentResult] = await db
+          .select({ count: count() })
+          .from(sentEmailsTable)
+          .where(
+            and(
+              eq(sentEmailsTable.recipientId, recipient.id),
+              eq(sentEmailsTable.followUpStepId, step.id),
+              eq(sentEmailsTable.status, "sent")
+            )
+          );
+        
+        if (!sentResult || sentResult.count === 0) {
+          return false; // Found a missing step for this active recipient
+        }
+      }
+    }
+  }
   
-  // Campaign is complete if all expected emails have been sent
-  return totalSentEmails >= expectedTotalEmails;
+  return true;
 }
 
 router.get("/campaigns", async (req, res) => {
@@ -161,7 +205,7 @@ router.get("/campaigns", async (req, res) => {
         firstRecipientData = recipients[0];
       } else {
         const [first] = await db
-          .select({ name: recipientsTable.name, email: recipientsTable.email })
+          .select({ name: recipientsTable.name, email: recipientsTable.email, company: recipientsTable.company })
           .from(recipientsTable)
           .where(eq(recipientsTable.campaignId, c.id))
           .limit(1);
@@ -190,7 +234,8 @@ router.get("/campaigns", async (req, res) => {
         followUpSteps,
         recipients,
         recipientName: firstRecipientData?.name || null,
-        recipientEmail: firstRecipientData?.email || null
+        recipientEmail: firstRecipientData?.email || null,
+        recipientCompany: firstRecipientData?.company || null
       };
     })
   );

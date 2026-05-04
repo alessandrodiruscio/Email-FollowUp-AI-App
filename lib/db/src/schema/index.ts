@@ -8,3 +8,4 @@ export * from "./emailEvents.js";
 export * from "./conversations.js";
 export * from "./messages.js";
 export * from "./webhookLogs.js";
+export * from "./notifications.js";

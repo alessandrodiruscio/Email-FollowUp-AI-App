@@ -7,6 +7,8 @@ import path from "path";
 import router from "./routes/index.js";
 import webhooksRouter from "./routes/webhooks.js";
 import initRouter from "./routes/init.js";
+import notificationsRouter from "./routes/notifications.js";
+
 
 import { fileURLToPath } from "url";
 
@@ -202,6 +204,7 @@ app.get("/debug-api", (req, res) => res.json({ debug: true, routerKeys: Object.k
 
 app.use("/api", router);
 app.use("/api", initRouter);
+app.use("/api", notificationsRouter);
 
 // Fallback for Vercel and production deployment
 if (fs.existsSync(distPath) && fs.statSync(distPath).isDirectory()) {
@@ -215,11 +218,7 @@ if (fs.existsSync(distPath) && fs.statSync(distPath).isDirectory()) {
   });
 } else {
   console.log(`[app] WARNING: distPath not found! Tried: ${potentialDistPaths.join(', ')}`);
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    if (req.method !== 'GET' && req.method !== 'HEAD') return next();
-    if (req.path.startsWith("/api") || req.path.startsWith("/health") || req.path.startsWith("/ping") || req.path.startsWith("/w") || req.path.startsWith("/webhook") || req.path.startsWith("/vercel-debug")) return next();
-    res.status(404).send(`Cannot GET ${req.path} - Front-end build not found at any of the potential paths. Environment: cwd=${process.cwd()}, dirname=${__dirname}`);
-  });
+  // Just pass through so Vite/index.ts can handle it
 }
 
 // Database readiness check for API routes

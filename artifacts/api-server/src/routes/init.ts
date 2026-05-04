@@ -151,6 +151,22 @@ router.post("/init/setup-email-tracking", async (req, res) => {
       console.error("[init] ✗ Failed to create webhook_logs table:", e);
     }
 
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS notifications (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          campaign_id INT,
+          title TEXT NOT NULL,
+          message TEXT NOT NULL,
+          \`read\` BOOLEAN NOT NULL DEFAULT FALSE,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log("[init] ✓ notifications table created");
+    } catch (e: any) {
+      console.error("[init] ✗ Failed to create notifications table:", e);
+    }
+
     console.log("[init] ✅ Email tracking setup complete!");
     res.json({
       success: true,

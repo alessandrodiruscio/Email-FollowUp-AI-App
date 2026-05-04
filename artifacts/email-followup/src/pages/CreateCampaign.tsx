@@ -49,6 +49,7 @@ const formSchema = z.object({
 const recipientSchema = z.object({
   name: z.string().min(1, "Name is required"),
   email: z.string().email("Invalid email address"),
+  company: z.string().optional(),
 });
 
 type Recipient = z.infer<typeof recipientSchema>;

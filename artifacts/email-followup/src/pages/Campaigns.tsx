@@ -328,9 +328,16 @@ export default function Campaigns() {
                   <Link href={`/campaigns/${campaign.id}`} className="flex-1 flex flex-col">
                     <CardContent className="p-6 flex-1 flex flex-col cursor-pointer">
                       <div className="flex justify-between items-start mb-4">
-                        <div>
+                        <div className="pr-2">
                           <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-1">Name</p>
-                          <p className="text-sm font-medium text-foreground">{campaign.recipientName || "Unnamed"}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-sm font-medium text-foreground">{campaign.recipientName || "Unnamed"}</p>
+                            {(campaign as any).recipientCompany && (
+                              <Badge variant="secondary" className="px-1.5 py-0 text-[10px] font-semibold">
+                                {(campaign as any).recipientCompany}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                         <Badge variant="outline" className={`px-2.5 py-0.5 font-semibold text-xs border uppercase tracking-wider flex-shrink-0 ${getStatusColor(campaign.status)}`}>
                           {campaign.status}

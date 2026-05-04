@@ -5,6 +5,7 @@ import { AppSidebar } from "./AppSidebar";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "wouter";
 import { useGlobalAutoSync } from "@/hooks/useAutoSync";
+import { AppNotifications } from "./AppNotifications";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
@@ -21,6 +22,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <header className="h-16 flex items-center px-4 md:px-8 border-b bg-background/80 backdrop-blur-md sticky top-0 z-40 supports-[backdrop-filter]:bg-background/60">
             <SidebarTrigger className="text-muted-foreground hover:text-foreground transition-colors" />
             <div className="ml-auto flex items-center gap-4">
+               <AppNotifications />
                {/* User avatar placeholder */}
                <div className="w-8 h-8 rounded-full bg-secondary border flex items-center justify-center text-xs font-medium text-secondary-foreground">
                  ME

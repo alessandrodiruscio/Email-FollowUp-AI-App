@@ -10,6 +10,7 @@ import * as emailEvents from "./schema/emailEvents.js";
 import * as conversations from "./schema/conversations.js";
 import * as messages from "./schema/messages.js";
 import * as webhookLogs from "./schema/webhookLogs.js";
+import * as notifications from "./schema/notifications.js";
 
 const schema = {
   ...campaigns,
@@ -22,6 +23,7 @@ const schema = {
   ...conversations,
   ...messages,
   ...webhookLogs,
+  ...notifications,
 };
 
 let poolConnection: ReturnType<typeof mysql.createPool> | null = null;
@@ -95,3 +97,4 @@ export * from "./schema/emailEvents.js";
 export * from "./schema/conversations.js";
 export * from "./schema/messages.js";
 export * from "./schema/webhookLogs.js";
+export * from "./schema/notifications.js";
