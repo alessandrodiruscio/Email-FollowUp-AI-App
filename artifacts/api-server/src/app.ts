@@ -213,19 +213,47 @@ app.use("/api", initRouter);
 app.use("/api", notificationsRouter);
 
 // Fallback for Vercel and production deployment
+let distPathIsValid = false;
 if (fs.existsSync(distPath) && fs.statSync(distPath).isDirectory()) {
+  distPathIsValid = true;
   console.log(`[app] Serving static from ${distPath}`);
   app.use(express.static(distPath));
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    if (req.method !== 'GET' && req.method !== 'HEAD') return next();
-    if (req.path.startsWith("/api") || req.path.startsWith("/health") || req.path.startsWith("/ping") || req.path.startsWith("/w") || req.path.startsWith("/webhook") || req.path.startsWith("/vercel-debug")) return next();
-    if (req.path.includes(".")) return next();
-    res.sendFile(path.join(distPath, "index.html"));
-  });
 } else {
   console.log(`[app] WARNING: distPath not found! Tried: ${potentialDistPaths.join(', ')}`);
   // Just pass through so Vite/index.ts can handle it
 }
+
+app.use((req: Request, res: Response, next: NextFunction) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+  if (req.path.startsWith("/api") || req.path.startsWith("/health") || req.path.startsWith("/ping") || req.path.startsWith("/w") || req.path.startsWith("/webhook") || req.path.startsWith("/vercel-debug")) return next();
+  if (req.path.includes(".") && !req.path.endsWith(".html")) return next();
+  
+  const indexPath = path.join(distPath, "index.html");
+  if (fs.existsSync(indexPath)) {
+    return res.sendFile(indexPath);
+  }
+  
+  // If we really didn't find it, show exactly why
+  res.status(404).send(`
+    <!DOCTYPE html>
+    <html>
+      <head><title>Setup Complete - Missing Build</title></head>
+      <body>
+        <h1>App Server Running</h1>
+        <p>The Express API is running, but the frontend React files were not found.</p>
+        <p>If you are deployed on Vercel, ensure your Vercel build command is <code>npm run build</code> and that Vercel is routing properly.</p>
+        <pre>
+Requested Path: ${req.path}
+Current Working Directory: ${process.cwd()}
+Dirname context: ${_dirname}
+Resolved distPath: ${distPath}
+
+Files in cwd: ${fs.readdirSync(process.cwd()).join(', ') || 'none'}
+        </pre>
+      </body>
+    </html>
+  `);
+});
 
 // Database readiness check for API routes
 app.use("/api", (req: Request, res: Response, next: NextFunction) => {
