@@ -197,7 +197,7 @@ app.get("/api/env-check", (req, res) => {
     distPath,
     exists: fs.existsSync(distPath),
     indexExists: fs.existsSync(path.join(distPath, "index.html")),
-    __dirname: __dirname
+    __dirname: _dirname
   });
 });
 
@@ -214,14 +214,31 @@ app.use("/api", notificationsRouter);
 
 // Fallback for Vercel and production deployment
 let distPathIsValid = false;
-if (fs.existsSync(distPath) && fs.statSync(distPath).isDirectory()) {
-  distPathIsValid = true;
-  console.log(`[app] Serving static from ${distPath}`);
-  app.use(express.static(distPath));
-} else {
-  console.log(`[app] WARNING: distPath not found! Tried: ${potentialDistPaths.join(', ')}`);
-  // Just pass through so Vite/index.ts can handle it
-}
+  const possiblePaths = [
+    distPath, // The one evaluated above
+    path.join(_dirname, 'dist', 'public'), // Local execution fallback
+    path.join(process.cwd(), 'dist', 'public'), // Vercel fallback
+    path.join(process.cwd(), 'public'),
+    path.join(process.cwd(), '_static')
+  ];
+  
+  let validPath = null;
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p) && fs.statSync(p).isDirectory()) {
+      validPath = p;
+      break;
+    }
+  }
+
+  if (validPath) {
+    console.log(`[app] Serving static from ${validPath}`);
+    app.use(express.static(validPath));
+    distPath = validPath; // Update distPath for the catch-all
+    distPathIsValid = true;
+  } else {
+    console.log(`[app] WARNING: distPath not found! Tried paths like: ${possiblePaths.join(', ')}`);
+    // Just pass through so Vite/index.ts can handle it, or it will throw 404 below
+  }
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   if (req.method !== 'GET' && req.method !== 'HEAD') return next();
