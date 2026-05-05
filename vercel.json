@@ -9,8 +9,32 @@
   },
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/api/(.*)",
       "destination": "/api/index.ts"
+    },
+    {
+      "source": "/health",
+      "destination": "/api/index.ts"
+    },
+    {
+      "source": "/ping",
+      "destination": "/api/index.ts"
+    },
+    {
+      "source": "/w/(.*)",
+      "destination": "/api/index.ts"
+    },
+    {
+      "source": "/webhook(.*)",
+      "destination": "/api/index.ts"
+    },
+    {
+      "source": "/((?!api|health|ping|w|webhook).*\\.[a-zA-Z0-9]+)",
+      "destination": "/$1"
+    },
+    {
+      "source": "/((?!api|health|ping|w|webhook).*)$",
+      "destination": "/index.html"
     }
   ]
 }

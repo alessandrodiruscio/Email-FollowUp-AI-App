@@ -245,12 +245,20 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   if (req.path.startsWith("/api") || req.path.startsWith("/health") || req.path.startsWith("/ping") || req.path.startsWith("/w") || req.path.startsWith("/webhook") || req.path.startsWith("/vercel-debug")) return next();
   if (req.path.includes(".") && !req.path.endsWith(".html")) return next();
   
-  const indexPath = path.join(distPath, "index.html");
-  if (fs.existsSync(indexPath)) {
-    return res.sendFile(indexPath);
+  if (distPathIsValid) {
+    const indexPath = path.join(distPath, "index.html");
+    if (fs.existsSync(indexPath)) {
+      return res.sendFile(indexPath);
+    }
   }
   
-  // If we really didn't find it, show exactly why
+  // If we are definitely in Vercel, or starting up compiled Node, distPathIsValid should be true.
+  // If we are in local dev, distPathIsValid is false, and we MUST return next() to let Vite handle it!
+  if (!distPathIsValid && process.env.NODE_ENV !== 'production') {
+    return next();
+  }
+  
+  // If we really didn't find it and we are in production, show exactly why
   res.status(404).send(`
     <!DOCTYPE html>
     <html>
